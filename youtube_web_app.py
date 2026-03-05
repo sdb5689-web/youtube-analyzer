@@ -26,6 +26,20 @@ try:
 except ImportError:
     HAS_GSHEET = False
 
+# ── Whisper (OpenAI STT) ──────────────────────
+try:
+    import openai as _openai_lib
+    HAS_WHISPER = True
+except ImportError:
+    HAS_WHISPER = False
+
+# ── yt-dlp (오디오 다운로드) ──────────────────
+try:
+    import yt_dlp as _yt_dlp_lib
+    HAS_YTDLP = True
+except ImportError:
+    HAS_YTDLP = False
+
 # ================================================================
 # 페이지 설정
 # ================================================================
@@ -40,7 +54,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main-header {
-        background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
+        background: linear-gradient(135deg, #1B3A6B 0%, #0D2347 100%);
         padding: 20px 30px;
         border-radius: 12px;
         color: white;
@@ -56,7 +70,7 @@ st.markdown("""
         padding: 15px;
         text-align: center;
     }
-    .metric-card .value { font-size: 1.8rem; font-weight: bold; color: #FF0000; }
+    .metric-card .value { font-size: 1.8rem; font-weight: bold; color: #1B3A6B; }
     .metric-card .label { font-size: 0.85rem; color: #666; margin-top: 4px; }
 
     .video-card {
@@ -71,7 +85,7 @@ st.markdown("""
     .video-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.13); }
     .video-title { font-size: 1.05rem; font-weight: bold; color: #1a1a1a; }
     .video-meta  { color: #666; font-size: 0.87rem; margin-top: 6px; }
-    .badge-hot   { background:#FF0000; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
+    .badge-hot   { background:#1B3A6B; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
     .badge-good  { background:#FF8C00; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
     .badge-new   { background:#4CAF50; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
     .badge-norm  { background:#9E9E9E; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
@@ -86,7 +100,7 @@ st.markdown("""
     }
     .section-title {
         font-size:1.1rem; font-weight:bold;
-        border-left:4px solid #FF0000;
+        border-left:4px solid #1B3A6B;
         padding-left:10px; margin:16px 0 10px 0;
     }
     .transcript-box {
@@ -312,6 +326,121 @@ def get_transcript(video_id):
     except Exception as e:
         return f"자막 없음 ({str(e)[:50]})"
 
+
+# ================================================================
+# Whisper STT : 오디오 다운로드 → OpenAI Whisper API 변환
+# ================================================================
+def whisper_transcribe(video_id: str, openai_api_key: str) -> str:
+    """
+    yt-dlp 로 오디오를 다운로드한 뒤 OpenAI Whisper API 로 텍스트 변환.
+    성공 시 변환된 텍스트, 실패 시 오류 메시지 반환.
+    """
+    import os, tempfile, subprocess, sys
+
+    if not openai_api_key:
+        return "[Whisper 오류] OpenAI API 키가 없습니다."
+
+    # yt-dlp 설치 확인
+    try:
+        import yt_dlp
+    except ImportError:
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "yt-dlp", "-q"])
+            import yt_dlp
+        except Exception as e:
+            return f"[Whisper 오류] yt-dlp 설치 실패: {e}"
+
+    # openai 설치 확인
+    try:
+        import openai
+    except ImportError:
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "openai", "-q"])
+            import openai
+        except Exception as e:
+            return f"[Whisper 오류] openai 설치 실패: {e}"
+
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    tmp_dir = tempfile.mkdtemp()
+    audio_path = os.path.join(tmp_dir, "audio.mp3")
+
+    try:
+        # 오디오 다운로드 (최대 25MB = 약 25분 이하 권장)
+        ydl_opts = {
+            "format": "bestaudio/best",
+            "outtmpl": os.path.join(tmp_dir, "audio.%(ext)s"),
+            "postprocessors": [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "64",   # 저용량 (64kbps)
+            }],
+            "quiet": True,
+            "no_warnings": True,
+            "max_filesize": 25 * 1024 * 1024,  # 25MB 제한
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+
+        # 다운로드된 mp3 찾기
+        mp3_files = [f for f in os.listdir(tmp_dir) if f.endswith(".mp3")]
+        if not mp3_files:
+            return "[Whisper 오류] 오디오 다운로드 실패 (mp3 파일 없음)"
+
+        audio_path = os.path.join(tmp_dir, mp3_files[0])
+        file_size  = os.path.getsize(audio_path)
+
+        # 25MB 초과 시 거부
+        if file_size > 25 * 1024 * 1024:
+            return f"[Whisper 오류] 파일 크기 초과 ({file_size//1024//1024}MB > 25MB). 짧은 영상만 지원합니다."
+
+        # OpenAI Whisper API 호출
+        openai.api_key = openai_api_key
+        with open(audio_path, "rb") as f:
+            response = openai.audio.transcriptions.create(
+                model="whisper-1",
+                file=f,
+                response_format="text",
+            )
+
+        result_text = response if isinstance(response, str) else response.text
+        return result_text if result_text else "[Whisper] 변환 결과 없음"
+
+    except yt_dlp.utils.DownloadError as e:
+        err = str(e)
+        if "Private video" in err or "members-only" in err:
+            return "[Whisper 오류] 비공개/멤버십 영상은 다운로드 불가"
+        return f"[Whisper 오류] 다운로드 실패: {err[:80]}"
+    except Exception as e:
+        return f"[Whisper 오류] {str(e)[:100]}"
+    finally:
+        # 임시 파일 정리
+        import shutil
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def get_transcript_with_whisper(video_id: str,
+                                 openai_api_key: str = "") -> str:
+    """
+    1차: youtube-transcript-api 로 자막 시도
+    2차: 자막 없으면 Whisper API 로 변환
+    """
+    result = get_transcript(video_id)
+    # 자막을 가져오지 못한 경우 Whisper 시도
+    if (not result or
+        result.startswith("자막 없음") or
+        result.startswith("youtube-transcript") or
+        result.startswith("[Whisper")):
+        if openai_api_key:
+            whisper_result = whisper_transcribe(video_id, openai_api_key)
+            if whisper_result and not whisper_result.startswith("[Whisper 오류]"):
+                return "[🎙️ Whisper 변환]\n" + whisper_result
+            else:
+                return f"자막 없음 / {whisper_result}"
+        else:
+            return result
+    return result
+
 # ================================================================
 # 엑셀 저장 (바이트 반환)
 # ================================================================
@@ -321,8 +450,8 @@ def save_xlsx_bytes(all_results_by_keyword, channel_stats):
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
 
-    RED   = "C00000"
-    DRED  = "9B1C1C"
+    RED   = "1B3A6B"
+    DRED  = "0D2347"
     WHITE = "FFFFFF"
     LGRAY = "F5F5F5"
     DGRAY = "D0D0D0"
@@ -749,6 +878,7 @@ def main():
     _s_sort       = _secret("DEFAULT_SORT", "조회수순")
     _s_email      = _secret("GSHEET_SHARE_EMAIL")
     _s_existing   = _secret("GSHEET_EXISTING_ID")
+    _s_openai_key = _secret("OPENAI_API_KEY")
 
     # ✅ Streamlit Cloud Secrets의 gcp_service_account 자동 로드
     _s_gcp_creds = None
@@ -850,6 +980,32 @@ def main():
             value=True,
             help="체크 시 각 영상의 자막을 가져와 키워드 추출과 요약을 수행합니다. 영상이 많으면 시간이 걸립니다."
         )
+
+        # ── Whisper STT 설정 ──────────────────────────────────
+        use_whisper = False
+        openai_api_key_input = ""
+        if fetch_transcript:
+            use_whisper = st.checkbox(
+                "🎙️ 자막 없는 영상은 Whisper로 변환",
+                value=False,
+                help="자막이 없는 영상에 대해 OpenAI Whisper API로 음성을 텍스트로 변환합니다.\n"
+                     "OpenAI API 키가 필요하며, 영상당 약 $0.006/분 비용이 발생합니다.\n"
+                     "25분 이하 영상 권장."
+            )
+            if use_whisper:
+                _default_oai = _s_openai_key
+                openai_api_key_input = st.text_input(
+                    "🔑 OpenAI API Key",
+                    value=_default_oai,
+                    type="password",
+                    placeholder="sk-...",
+                    help="https://platform.openai.com/api-keys 에서 발급"
+                )
+                if not openai_api_key_input:
+                    st.caption("⚠️ API 키를 입력하면 자막 없는 영상에 Whisper 변환이 적용됩니다.")
+                else:
+                    st.caption("✅ Whisper API 키 설정됨 — 자막 없는 영상 자동 변환")
+                st.caption("💡 비용: ~$0.006/분 · 25분 이하 영상 권장")
 
         st.markdown("---")
         search_btn = st.button("🚀 검색 시작", use_container_width=True, type="primary")
@@ -1013,13 +1169,39 @@ def main():
             status_text.info(f"👥 [{kw}] 구독자 수 수집 중...")
             videos = fetch_subscribers(api_key, videos)
 
-            # 4) 자막
+            # 4) 자막 (+ Whisper 폴백)
             if fetch_transcript:
                 for vi, v in enumerate(videos):
-                    status_text.info(f"📜 [{kw}] 자막 수집 중... ({vi+1}/{len(videos)}) - {v['title'][:30]}...")
-                    v["transcript"] = get_transcript(v["videoId"])
-                    v["keywords"]   = extract_keywords(v["transcript"] + " " + v["description"] + " " + " ".join(v["tags"]))
-                    v["summary"]    = summarize_text(v["transcript"] if len(v.get("transcript","")) > 100 else v["description"])
+                    # 상태 메시지
+                    whisper_note = " 🎙️Whisper 대기중" if use_whisper and openai_api_key_input else ""
+                    status_text.info(f"📜 [{kw}] 자막 수집 중... ({vi+1}/{len(videos)}) - {v['title'][:30]}...{whisper_note}")
+
+                    if use_whisper and openai_api_key_input:
+                        raw = get_transcript(v["videoId"])
+                        # 자막 없으면 Whisper 시도
+                        if (not raw or
+                            raw.startswith("자막 없음") or
+                            raw.startswith("youtube-transcript")):
+                            status_text.info(
+                                f"🎙️ [{kw}] Whisper 변환 중... ({vi+1}/{len(videos)}) "
+                                f"- {v['title'][:25]}... (수 분 소요될 수 있습니다)"
+                            )
+                            raw = whisper_transcribe(v["videoId"], openai_api_key_input)
+                            if raw and not raw.startswith("[Whisper 오류]"):
+                                v["transcript"] = f"[🎙️ Whisper 변환]\n{raw}"
+                            else:
+                                v["transcript"] = raw  # 오류 메시지 그대로
+                        else:
+                            v["transcript"] = raw
+                    else:
+                        v["transcript"] = get_transcript(v["videoId"])
+
+                    v["keywords"] = extract_keywords(
+                        v["transcript"] + " " + v["description"] + " " + " ".join(v["tags"])
+                    )
+                    v["summary"]  = summarize_text(
+                        v["transcript"] if len(v.get("transcript","")) > 100 else v["description"]
+                    )
 
             # 5) 배지 & 순위
             for rank_i, v in enumerate(videos, 1):
