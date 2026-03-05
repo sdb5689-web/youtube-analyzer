@@ -1006,19 +1006,25 @@ def main():
                      "25분 이하 영상 권장."
             )
             if use_whisper:
-                _default_oai = _s_openai_key
-                openai_api_key_input = st.text_input(
-                    "🔑 OpenAI API Key",
-                    value=_default_oai,
-                    type="password",
-                    placeholder="sk-...",
-                    help="https://platform.openai.com/api-keys 에서 발급"
-                )
-                if not openai_api_key_input:
-                    st.caption("⚠️ API 키를 입력하면 자막 없는 영상에 Whisper 변환이 적용됩니다.")
+                # Secrets에 키가 있으면 입력창 숨기고 자동 사용
+                if _s_openai_key:
+                    openai_api_key_input = _s_openai_key
+                    st.caption("✅ Secrets에서 OpenAI API Key 자동 로드됨")
+                    st.caption("💡 비용: ~$0.006/분 · 25분 이하 영상 권장")
                 else:
-                    st.caption("✅ Whisper API 키 설정됨 — 자막 없는 영상 자동 변환")
-                st.caption("💡 비용: ~$0.006/분 · 25분 이하 영상 권장")
+                    openai_api_key_input = st.text_input(
+                        "🔑 OpenAI API Key",
+                        value="",
+                        type="password",
+                        placeholder="sk-...",
+                        help="https://platform.openai.com/api-keys 에서 발급\n"
+                             "또는 Streamlit Secrets에 OPENAI_API_KEY 추가"
+                    )
+                    if not openai_api_key_input:
+                        st.caption("⚠️ API 키를 입력하거나 Secrets에 OPENAI_API_KEY를 추가하세요.")
+                    else:
+                        st.caption("✅ Whisper API 키 설정됨")
+                    st.caption("💡 비용: ~$0.006/분 · 25분 이하 영상 권장")
 
         st.markdown("---")
         search_btn = st.button("🚀 검색 시작", use_container_width=True, type="primary")
