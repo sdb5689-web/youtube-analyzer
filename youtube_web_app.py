@@ -594,36 +594,48 @@ def upload_to_gsheet(all_results_by_keyword, channel_stats, sort_label,
     except Exception as e:
         return False, f"스프레드시트 생성 오류: {e}"
 
-    # 시트 작성
-    try:
-        worksheets = sh.worksheets()
-        existing_titles = [ws.title for ws in worksheets]
-
-        def get_or_create_ws(title, rows=500, cols=20):
-            """시트 생성/조회 (이모지 이름 실패 시 plain 이름 fallback)"""
-            def _try_create(t):
-                if t in existing_titles:
-                    ws = sh.worksheet(t)
-                    ws.clear()
-                    return ws
-                return sh.add_worksheet(title=t, rows=rows, cols=cols)
+    # ── 시트 작성 헬퍼 ─────────────────────────────────────────
+    def safe_write(ws, rows_data):
+        """시트에 데이터 쓰기 — gspread v6 호환 (update 방식)"""
+        if not rows_data:
+            return
+        # 문자열 변환 (None, 숫자 등 안전 처리)
+        safe = []
+        for row in rows_data:
+            safe.append([str(c) if c is not None else "" for c in row])
+        try:
+            # gspread v6: update(values, range_name)
+            ws.update(safe, "A1")
+        except TypeError:
             try:
-                return _try_create(title)
+                # gspread v5 이하: update(range_name, values)
+                ws.update("A1", safe)
             except Exception:
-                # 이모지 제거한 plain 이름으로 재시도
-                import re as _re
-                plain = _re.sub(r'[^\w\s가-힣]', '', title).strip()
-                if not plain:
-                    plain = "Sheet_" + str(len(existing_titles))
-                try:
-                    return _try_create(plain)
-                except Exception as e2:
-                    raise RuntimeError(f"시트 생성 실패({title}): {e2}")
+                # 최후 수단: append_rows
+                for i in range(0, len(safe), 200):
+                    ws.append_rows(safe[i:i+200], value_input_option="RAW")
 
-        # ── 시트1: 영상 목록
-        ws1 = get_or_create_ws("📋 영상 목록", rows=1000, cols=15)
-        h1  = ["검색어","순위","제목","채널","구독자","조회수","좋아요","댓글",
-               "재생시간","업로드일","태그","핵심키워드","요약","URL"]
+    def get_or_create_ws(title, rows=500, cols=20):
+        """시트 생성/조회 (이모지 이름 실패 시 plain 이름 fallback)"""
+        current_titles = [ws.title for ws in sh.worksheets()]
+        def _try(t):
+            if t in current_titles:
+                ws = sh.worksheet(t)
+                ws.clear()
+                return ws
+            return sh.add_worksheet(title=t, rows=rows, cols=cols)
+        try:
+            return _try(title)
+        except Exception:
+            import re as _re
+            plain = _re.sub(r'[^\w\s가-힣]', '', title).strip() or f"Sheet{len(current_titles)}"
+            return _try(plain)
+
+    # ── 시트1: 영상 목록 ───────────────────────────────────────
+    try:
+        ws1   = get_or_create_ws("영상 목록", rows=1000, cols=15)
+        h1    = ["검색어","순위","제목","채널","구독자","조회수","좋아요","댓글",
+                 "재생시간","업로드일","태그","핵심키워드","요약","URL"]
         rows1 = [h1]
         for kw, videos in all_results_by_keyword.items():
             for rank_idx, v in enumerate(videos, 1):
@@ -636,12 +648,14 @@ def upload_to_gsheet(all_results_by_keyword, channel_stats, sort_label,
                     v.get("summary", ""),
                     v["url"]
                 ])
-        for i in range(0, len(rows1), 500):
-            ws1.append_rows(rows1[i:i+500], value_input_option='RAW')
+        safe_write(ws1, rows1)
+    except Exception as e:
+        return False, f"❌ 시트1(영상 목록) 쓰기 오류: {e}"
 
-        # ── 시트2: 채널 통계
-        ws2 = get_or_create_ws("📊 채널 통계", rows=200, cols=10)
-        h2  = ["채널명","구독자","영상수","총조회수","평균조회수","총좋아요","평균좋아요","총댓글","대표영상"]
+    # ── 시트2: 채널 통계 ───────────────────────────────────────
+    try:
+        ws2   = get_or_create_ws("채널 통계", rows=200, cols=10)
+        h2    = ["채널명","구독자","영상수","총조회수","평균조회수","총좋아요","평균좋아요","총댓글","대표영상"]
         rows2 = [h2]
         for cs in channel_stats:
             rep = cs["videos"][0]["url"] if cs["videos"] else ""
@@ -651,49 +665,62 @@ def upload_to_gsheet(all_results_by_keyword, channel_stats, sort_label,
                 fmt(cs["totalLike"]), fmt(cs["avgLike"]),
                 fmt(cs["totalComment"]), rep
             ])
-        ws2.append_rows(rows2, value_input_option='RAW')
+        safe_write(ws2, rows2)
+    except Exception as e:
+        return False, f"❌ 시트2(채널 통계) 쓰기 오류: {e}"
 
-        # ── 시트3: 키워드 요약
-        ws3 = get_or_create_ws("🔑 키워드 요약", rows=100, cols=6)
-        h3  = ["검색어","영상수","평균조회수","최고조회수","공통키워드 TOP5"]
+    # ── 시트3: 키워드 요약 ─────────────────────────────────────
+    try:
+        ws3   = get_or_create_ws("키워드 요약", rows=100, cols=6)
+        h3    = ["검색어","영상수","평균조회수","최고조회수","공통키워드 TOP5"]
         rows3 = [h3]
         for kw, videos in all_results_by_keyword.items():
             all_kws = []
-            for v in videos: all_kws.extend(v.get("keywords", []))
-            top5 = " · ".join([w for w, _ in Counter(all_kws).most_common(5)])
+            for v in videos:
+                all_kws.extend(v.get("keywords", []))
+            top5  = " · ".join([w for w, _ in Counter(all_kws).most_common(5)])
             avg_v = sum(v["viewCount"] for v in videos) // len(videos) if videos else 0
             max_v = max((v["viewCount"] for v in videos), default=0)
             rows3.append([kw, len(videos), fmt(avg_v)+"회", fmt(max_v)+"회", top5])
-        ws3.append_rows(rows3, value_input_option='RAW')
+        safe_write(ws3, rows3)
+    except Exception as e:
+        return False, f"❌ 시트3(키워드 요약) 쓰기 오류: {e}"
 
-        # ── 시트4: 대본 전문
-        ws4 = get_or_create_ws("📜 대본 전문", rows=500, cols=5)
-        h4  = ["제목","채널","URL","대본 전문"]
+    # ── 시트4: 대본 전문 ───────────────────────────────────────
+    try:
+        ws4   = get_or_create_ws("대본 전문", rows=500, cols=4)
+        h4    = ["제목","채널","URL","대본 전문"]
         rows4 = [h4]
+        MAX_CELL = 49000
         for videos in all_results_by_keyword.values():
             for v in videos:
-                if v.get("transcript") and "자막 없음" not in v["transcript"] and len(v["transcript"]) > 20:
-                    transcript_text = v["transcript"]
-                    # ✅ Google Sheets 셀 최대 50,000자 제한 처리
-                    MAX_CELL = 49000
-                    if len(transcript_text) > MAX_CELL:
-                        orig_len = len(transcript_text)
-                        transcript_text = transcript_text[:MAX_CELL] + f"\n\n[⚠️ 대본이 너무 길어 {MAX_CELL}자에서 잘렸습니다. 원본 길이: {orig_len}자]"
-                    rows4.append([v["title"], v["channelTitle"], v["url"], transcript_text])
-        # ✅ 대본은 셀이 크므로 배치 크기를 10으로 줄임
-        for i in range(0, len(rows4), 10):
-            ws4.append_rows(rows4[i:i+10], value_input_option='RAW')
-
-        # 기본 시트 제거
-        for ws in sh.worksheets():
-            if ws.title == "Sheet1" or ws.title == "시트1":
-                try: sh.del_worksheet(ws)
-                except: pass
-
-        return True, sheet_url
-
+                tr = v.get("transcript", "")
+                if tr and "자막 없음" not in tr and len(tr) > 20:
+                    if len(tr) > MAX_CELL:
+                        tr = tr[:MAX_CELL] + f"\n\n[⚠️ {MAX_CELL}자 초과로 잘림. 원본: {len(v['transcript'])}자]"
+                    rows4.append([v["title"], v["channelTitle"], v["url"], tr])
+        # 대본은 크므로 50행씩 나눠서 update
+        ws4.clear()
+        for i in range(0, len(rows4), 50):
+            chunk = rows4[i:i+50]
+            safe_rows = [[str(c) if c is not None else "" for c in row] for row in chunk]
+            try:
+                start_row = i + 1
+                ws4.update(safe_rows, f"A{start_row}")
+            except TypeError:
+                ws4.update(f"A{i+1}", safe_rows)
     except Exception as e:
-        return False, f"데이터 업로드 오류: {e}"
+        return False, f"❌ 시트4(대본 전문) 쓰기 오류: {e}"
+
+    # ── 기본 Sheet1 제거 ───────────────────────────────────────
+    for ws in sh.worksheets():
+        if ws.title in ("Sheet1", "시트1"):
+            try:
+                sh.del_worksheet(ws)
+            except Exception:
+                pass
+
+    return True, sheet_url
 
 # ================================================================
 # 메인 UI
