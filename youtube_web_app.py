@@ -376,43 +376,53 @@ def whisper_transcribe(video_id: str, openai_api_key: str) -> str:
                       '.mpga', '.wav', '.ogg', '.opus')
 
     try:
-        # ── ffmpeg 불필요 방식: m4a/webm 원본 그대로 다운로드 ──
-        # Streamlit Cloud에는 ffmpeg 가 없으므로 postprocessor 제거
-        ydl_opts = {
-            # m4a 우선(Whisper 호환), 없으면 webm, 그 외 최선
+        import requests as _req
+
+        # ── Step 1: yt-dlp 로 오디오 스트림 URL 추출 (다운로드 없음) ──
+        ydl_opts_info = {
             "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
-            "outtmpl": os.path.join(tmp_dir, "audio.%(ext)s"),
-            # postprocessors 없음 → ffmpeg 불필요
             "quiet": True,
             "no_warnings": True,
-            "max_filesize": 25 * 1024 * 1024,  # 25MB 제한
+            "noplaylist": True,
         }
+        audio_url = None
+        audio_ext = "m4a"
+        with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if info:
+                audio_url = info.get("url")
+                audio_ext = info.get("ext", "m4a")
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+        if not audio_url:
+            return "[Whisper 오류] 오디오 스트림 URL 추출 실패"
 
-        # 다운로드된 오디오 파일 찾기 (확장자 무관)
-        audio_files = [
-            f for f in os.listdir(tmp_dir)
-            if os.path.splitext(f)[1].lower() in SUPPORTED_EXTS
-        ]
-        if not audio_files:
-            # 혹시 다른 파일이 있는지 확인 후 시도
-            all_files = os.listdir(tmp_dir)
-            if all_files:
-                audio_files = all_files  # 확장자 무시하고 첫 파일 시도
-            else:
-                return "[Whisper 오류] 오디오 다운로드 실패 (파일 없음)"
+        # ── Step 2: requests 로 직접 다운로드 ──
+        audio_path = os.path.join(tmp_dir, f"audio.{audio_ext}")
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Referer": "https://www.youtube.com/",
+        }
+        total_bytes = 0
+        MAX_BYTES = 25 * 1024 * 1024  # 25MB
+        with _req.get(audio_url, headers=headers, stream=True, timeout=60) as r:
+            r.raise_for_status()
+            with open(audio_path, "wb") as fp:
+                for chunk in r.iter_content(chunk_size=65536):
+                    if chunk:
+                        total_bytes += len(chunk)
+                        if total_bytes > MAX_BYTES:
+                            return (f"[Whisper 오류] 파일 크기 초과 "
+                                    f"(25MB 이상). 짧은 영상만 지원합니다.")
+                        fp.write(chunk)
 
-        audio_path = os.path.join(tmp_dir, audio_files[0])
-        file_size  = os.path.getsize(audio_path)
+        if not os.path.exists(audio_path) or os.path.getsize(audio_path) < 1000:
+            return "[Whisper 오류] 오디오 다운로드 실패 (파일 크기 0)"
 
-        # 25MB 초과 시 거부
-        if file_size > 25 * 1024 * 1024:
-            return (f"[Whisper 오류] 파일 크기 초과 "
-                    f"({file_size//1024//1024}MB > 25MB). 짧은 영상만 지원합니다.")
-
-        # ── OpenAI Whisper API 호출 ──
+        # ── Step 3: OpenAI Whisper API 호출 ──
         openai.api_key = openai_api_key
         with open(audio_path, "rb") as f:
             response = openai.audio.transcriptions.create(
@@ -749,17 +759,31 @@ def upload_to_gsheet(all_results_by_keyword, channel_stats, sort_label,
         safe = [[str(c) if c is not None else "" for c in row]
                 for row in rows_data]
         ws.clear()
+        written = False
+        # 방법 1: gspread v5 방식 (range_name, values)
         try:
-            # gspread v5/v6 공통: update(range_name, values)
             ws.update("A1", safe)
+            written = True
         except Exception:
+            pass
+        # 방법 2: gspread v6 키워드 방식
+        if not written:
             try:
-                # gspread v6 일부 버전 키워드 방식
                 ws.update(range_name="A1", values=safe)
+                written = True
             except Exception:
-                # 최후 수단: 200행씩 append
-                for i in range(0, len(safe), 200):
-                    ws.append_rows(safe[i:i+200], value_input_option="RAW")
+                pass
+        # 방법 3: batch_update 방식
+        if not written:
+            try:
+                ws.batch_update([{"range": "A1", "values": safe}])
+                written = True
+            except Exception:
+                pass
+        # 방법 4: 최후 수단 append
+        if not written:
+            for i in range(0, len(safe), 100):
+                ws.append_rows(safe[i:i+100], value_input_option="RAW")
 
     def get_or_create_ws(title, rows=500, cols=20):
         """시트 생성/조회 (이모지 이름 실패 시 plain 이름 fallback)"""
@@ -891,7 +915,10 @@ def main():
     # ================================================================
     def _secret(key, default=""):
         try:
-            return str(st.secrets.get(key, default))
+            v = st.secrets.get(key, None)
+            if v is None or str(v).strip() == "" or str(v) == "None":
+                return default
+            return str(v).strip()
         except Exception:
             return default
 
@@ -1219,7 +1246,10 @@ def main():
                             if raw and not raw.startswith("[Whisper 오류]"):
                                 v["transcript"] = f"[🎙️ Whisper 변환]\n{raw}"
                             else:
-                                v["transcript"] = raw  # 오류 메시지 그대로
+                                # 오류 내용을 화면에 표시
+                                err_msg = raw if raw else "[Whisper 오류] 알 수 없는 오류"
+                                st.warning(f"🎙️ Whisper 변환 실패: {v['title'][:30]}\n→ {err_msg}")
+                                v["transcript"] = "자막 없음 (Whisper 실패)"
                         else:
                             v["transcript"] = raw
                     else:
@@ -1384,6 +1414,9 @@ streamlit run youtube_web_app.py
                 if not _cd:
                     st.error("❌ credentials.json 파일이 없습니다. 앱 폴더에 넣어주세요.")
                 else:
+                    # 업로드 전 데이터 확인
+                    _total_rows = sum(len(v) for v in all_results.values())
+                    st.info(f"📊 업로드할 영상 수: {_total_rows}개, 키워드: {list(all_results.keys())}")
                     with st.spinner("📊 구글 스프레드시트 업로드 중..."):
                         ok, result = upload_to_gsheet(
                             all_results, channel_stats, sort_label,
