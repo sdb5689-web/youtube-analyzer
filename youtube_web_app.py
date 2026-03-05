@@ -370,18 +370,19 @@ def whisper_transcribe(video_id: str, openai_api_key: str) -> str:
 
     url = f"https://www.youtube.com/watch?v={video_id}"
     tmp_dir = tempfile.mkdtemp()
-    audio_path = os.path.join(tmp_dir, "audio.mp3")
+
+    # OpenAI Whisper API 가 지원하는 확장자 (ffmpeg 없이 직접 전송 가능)
+    SUPPORTED_EXTS = ('.m4a', '.webm', '.mp4', '.mp3', '.mpeg',
+                      '.mpga', '.wav', '.ogg', '.opus')
 
     try:
-        # 오디오 다운로드 (최대 25MB = 약 25분 이하 권장)
+        # ── ffmpeg 불필요 방식: m4a/webm 원본 그대로 다운로드 ──
+        # Streamlit Cloud에는 ffmpeg 가 없으므로 postprocessor 제거
         ydl_opts = {
-            "format": "bestaudio/best",
+            # m4a 우선(Whisper 호환), 없으면 webm, 그 외 최선
+            "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
             "outtmpl": os.path.join(tmp_dir, "audio.%(ext)s"),
-            "postprocessors": [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "64",   # 저용량 (64kbps)
-            }],
+            # postprocessors 없음 → ffmpeg 불필요
             "quiet": True,
             "no_warnings": True,
             "max_filesize": 25 * 1024 * 1024,  # 25MB 제한
@@ -390,19 +391,28 @@ def whisper_transcribe(video_id: str, openai_api_key: str) -> str:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        # 다운로드된 mp3 찾기
-        mp3_files = [f for f in os.listdir(tmp_dir) if f.endswith(".mp3")]
-        if not mp3_files:
-            return "[Whisper 오류] 오디오 다운로드 실패 (mp3 파일 없음)"
+        # 다운로드된 오디오 파일 찾기 (확장자 무관)
+        audio_files = [
+            f for f in os.listdir(tmp_dir)
+            if os.path.splitext(f)[1].lower() in SUPPORTED_EXTS
+        ]
+        if not audio_files:
+            # 혹시 다른 파일이 있는지 확인 후 시도
+            all_files = os.listdir(tmp_dir)
+            if all_files:
+                audio_files = all_files  # 확장자 무시하고 첫 파일 시도
+            else:
+                return "[Whisper 오류] 오디오 다운로드 실패 (파일 없음)"
 
-        audio_path = os.path.join(tmp_dir, mp3_files[0])
+        audio_path = os.path.join(tmp_dir, audio_files[0])
         file_size  = os.path.getsize(audio_path)
 
         # 25MB 초과 시 거부
         if file_size > 25 * 1024 * 1024:
-            return f"[Whisper 오류] 파일 크기 초과 ({file_size//1024//1024}MB > 25MB). 짧은 영상만 지원합니다."
+            return (f"[Whisper 오류] 파일 크기 초과 "
+                    f"({file_size//1024//1024}MB > 25MB). 짧은 영상만 지원합니다.")
 
-        # OpenAI Whisper API 호출
+        # ── OpenAI Whisper API 호출 ──
         openai.api_key = openai_api_key
         with open(audio_path, "rb") as f:
             response = openai.audio.transcriptions.create(
@@ -411,7 +421,7 @@ def whisper_transcribe(video_id: str, openai_api_key: str) -> str:
                 response_format="text",
             )
 
-        result_text = response if isinstance(response, str) else response.text
+        result_text = response if isinstance(response, str) else getattr(response, 'text', str(response))
         return result_text if result_text else "[Whisper] 변환 결과 없음"
 
     except yt_dlp.utils.DownloadError as e:
