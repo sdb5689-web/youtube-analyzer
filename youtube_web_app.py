@@ -1066,6 +1066,16 @@ def main():
         st.markdown("---")
         search_btn = st.button("🚀 검색 시작", use_container_width=True, type="primary")
 
+        # ✅ FIX: Secrets 로드 현황 디버그 패널
+        with st.expander("🔧 Secrets 로드 현황 (클릭)", expanded=False):
+            st.caption(f"YOUTUBE_API_KEY: {'✅ 로드됨' if _s_api_key else '❌ 없음'}")
+            st.caption(f"OPENAI_API_KEY: {'✅ 로드됨 (' + _s_openai_key[:8] + '...)' if _s_openai_key else '❌ 없음 → 수동 입력 필요'}")
+            st.caption(f"GSHEET_SHARE_EMAIL: {'✅ ' + _s_email if _s_email else '❌ 없음'}")
+            st.caption(f"GSHEET_EXISTING_ID: {'✅ 설정됨' if _s_existing else '❌ 없음'}")
+            st.caption(f"gcp_service_account: {'✅ 로드됨' if _s_gcp_creds else '❌ 없음'}")
+            if not _s_openai_key:
+                st.info("💡 OPENAI_API_KEY 설정 방법:\n```\nOPENAI_API_KEY = \"sk-proj-...\"\n```\nStreamlit Cloud → Settings → Secrets에 추가 후 앱 재시작")
+
         st.markdown("---")
         st.markdown("### 📊 Google Sheets 설정")
 
@@ -1202,6 +1212,7 @@ def main():
         all_results   = {}
         all_videos_flat = []
         total_steps   = len(keywords)
+        _whisper_errors = []  # Whisper 오류 수집용
 
         for ki, kw in enumerate(keywords):
             status_text.info(f"🔍 [{kw}] 검색 중... ({ki+1}/{total_steps})")
@@ -1248,8 +1259,9 @@ def main():
                             else:
                                 # 오류 내용을 화면에 표시
                                 err_msg = raw if raw else "[Whisper 오류] 알 수 없는 오류"
+                                _whisper_errors.append(f"• {v['title'][:35]}: {err_msg}")
                                 st.warning(f"🎙️ Whisper 변환 실패: {v['title'][:30]}\n→ {err_msg}")
-                                v["transcript"] = "자막 없음 (Whisper 실패)"
+                                v["transcript"] = f"자막 없음 (Whisper 실패: {err_msg[:60]})"
                         else:
                             v["transcript"] = raw
                     else:
@@ -1285,6 +1297,25 @@ def main():
         st.session_state["share_email"]   = share_email
         st.session_state["existing_id"]   = existing_id
         st.session_state["use_gsheet"]    = use_gsheet
+        st.session_state["whisper_errors"] = _whisper_errors
+
+        # ✅ FIX: 구글시트 자동 업로드 (체크박스 ON 시 검색 완료 후 즉시 실행)
+        if use_gsheet and creds_dict:
+            with st.spinner("☁️ 구글 스프레드시트 자동 업로드 중..."):
+                _auto_ok, _auto_result = upload_to_gsheet(
+                    all_results, channel_stats, sort_option,
+                    credentials_dict=creds_dict,
+                    share_email=share_email,
+                    existing_id=existing_id
+                )
+            if _auto_ok:
+                st.success("✅ 구글 스프레드시트 자동 업로드 완료!")
+                st.markdown(f"🔗 [스프레드시트 열기]({_auto_result})")
+                st.session_state["gsheet_url"] = _auto_result
+            else:
+                st.error(f"❌ 자동 업로드 실패: {_auto_result}")
+        elif use_gsheet and not creds_dict:
+            st.error("❌ 자동 업로드 실패: credentials 없음. Secrets의 [gcp_service_account]를 확인하세요.")
 
     # ================================================================
     # 결과 표시
@@ -1319,6 +1350,15 @@ streamlit run youtube_web_app.py
     all_results   = st.session_state["results"]
     channel_stats = st.session_state["channel_stats"]
     sort_label    = st.session_state["sort_label"]
+
+    # ✅ FIX: Whisper 오류 요약 표시
+    _we = st.session_state.get("whisper_errors", [])
+    if _we:
+        with st.expander(f"⚠️ Whisper 변환 실패 영상 {len(_we)}개 (클릭하여 원인 확인)", expanded=True):
+            st.markdown("**Streamlit Cloud에서는 YouTube가 IP를 차단하여 Whisper 변환이 어렵습니다.**")
+            st.markdown("로컬 PC에서 실행하면 정상 작동합니다.")
+            for _e in _we:
+                st.caption(_e)
 
     # ── 요약 통계 ─────────────────────────────────────────────
     total_videos   = sum(len(v) for v in all_results.values())
