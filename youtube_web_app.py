@@ -723,6 +723,15 @@ def main():
     _s_email      = _secret("GSHEET_SHARE_EMAIL")
     _s_existing   = _secret("GSHEET_EXISTING_ID")
 
+    # ✅ Streamlit Cloud Secrets의 gcp_service_account 자동 로드
+    _s_gcp_creds = None
+    try:
+        _gcp = st.secrets.get("gcp_service_account", {})
+        if _gcp and _gcp.get("type") == "service_account":
+            _s_gcp_creds = dict(_gcp)
+    except Exception:
+        _s_gcp_creds = None
+
     # ================================================================
     # 클립보드 복사 헬퍼 함수 (JS 기반)
     # ================================================================
@@ -848,11 +857,20 @@ def main():
         existing_id      = _s_existing
 
         if use_gsheet:
-            # ── 전체 자동 설정 여부 확인 ────────────────────────
-            _all_auto = bool(_auto_creds_path and _s_existing)
+            # ── 우선순위: ①Secrets gcp_service_account → ②로컬 파일 → ③수동 업로드
+            _all_auto = bool((_s_gcp_creds or _auto_creds_path) and _s_existing)
 
-            if _all_auto:
-                # ✅ 모든 설정이 자동 완성 — 입력란 없음
+            if _s_gcp_creds:
+                # ✅ Streamlit Cloud Secrets에서 자동 로드됨
+                st.success("✅ Secrets에서 Google 인증 자동 로드 완료")
+                if _s_email:
+                    st.caption(f"📧 공유 이메일: {_s_email}")
+                if _s_existing:
+                    _eid_display = _s_existing[:20] + "..." if len(_s_existing) > 20 else _s_existing
+                    st.caption(f"📊 시트 ID: {_eid_display}")
+                _show_manual = st.checkbox("⚙️ 설정 수동 변경", value=False, key="gsheet_manual")
+            elif _all_auto:
+                # ✅ 로컬 파일에서 자동 로드됨
                 st.success("✅ 모든 설정 자동 로드 완료")
                 st.caption(f"🔑 credentials: {_os.path.basename(_auto_creds_path)}")
                 if _s_email:
@@ -863,9 +881,11 @@ def main():
             else:
                 _show_manual = True
 
-            if _show_manual:
+            if _show_manual if not _s_gcp_creds else st.session_state.get("gsheet_manual", False):
                 # credentials.json
-                if _auto_creds_path:
+                if _s_gcp_creds:
+                    st.info("✅ Secrets(gcp_service_account)에서 인증 정보 로드됨")
+                elif _auto_creds_path:
                     st.info(f"✅ credentials.json 자동 감지: {_os.path.basename(_auto_creds_path)}")
                     if st.checkbox("다른 파일로 교체", value=False, key="replace_creds"):
                         credentials_file = st.file_uploader(
@@ -874,7 +894,7 @@ def main():
                             help="Google Cloud 서비스 계정 JSON 키 파일"
                         )
                 else:
-                    st.warning("⚠️ credentials.json 없음 — 아래 업로드 또는 앱 폴더에 넣기")
+                    st.warning("⚠️ credentials.json 없음\n\nStreamlit Cloud Secrets에 [gcp_service_account] 섹션을 추가하거나 파일을 업로드하세요")
                     credentials_file = st.file_uploader(
                         "credentials.json 업로드",
                         type=["json"],
@@ -912,10 +932,14 @@ def main():
 
         keywords = [kw.strip() for kw in keywords_input.replace("，",",").split(",") if kw.strip()]
 
-        # credentials.json 로드: 수동 업로드 → 자동 탐색 순서
+
+        # credentials.json 로드: ①Secrets gcp → ②수동 업로드 → ③자동 탐색 순서
         creds_dict = None
         if use_gsheet:
-            if credentials_file:
+            # ✅ 우선순위 1: Streamlit Cloud Secrets gcp_service_account
+            if _s_gcp_creds:
+                creds_dict = _s_gcp_creds
+            elif credentials_file:
                 try:
                     creds_dict = json.load(credentials_file)
                 except:
@@ -929,7 +953,7 @@ def main():
                     st.error(f"❌ credentials.json 자동 로드 실패: {_e}")
                     st.stop()
             else:
-                st.error("❌ credentials.json 파일이 없습니다. 업로드하거나 앱 폴더에 넣어주세요.")
+                st.error("❌ credentials.json 없음\n\n해결 방법:\n1. Streamlit Cloud → Settings → Secrets에 [gcp_service_account] 추가\n2. 또는 파일 직접 업로드")
                 st.stop()
 
         # 진행 상태
@@ -1096,14 +1120,18 @@ streamlit run youtube_web_app.py
             _os2.path.join(_os2.getcwd(), ".streamlit", "credentials.json"),
         ]
         _found_cred2 = next((p for p in _cred_paths2 if _os2.path.exists(p)), None)
+        # ✅ Secrets gcp_service_account 도 업로드 가능 조건에 포함
         _can_upload = HAS_GSHEET and (
-            st.session_state.get("creds_dict") or _found_cred2
+            st.session_state.get("creds_dict") or _found_cred2 or _s_gcp_creds
         )
 
         if _can_upload:
             if st.button("☁️ Google Sheets 업로드", use_container_width=True, type="primary"):
                 # creds_dict: 세션 우선, 없으면 파일에서 로드
                 _cd = st.session_state.get("creds_dict")
+                # ✅ Secrets gcp_service_account 우선 사용
+                if not _cd and _s_gcp_creds:
+                    _cd = _s_gcp_creds
                 if not _cd and _found_cred2:
                     try:
                         with open(_found_cred2, "r", encoding="utf-8") as _ff:
