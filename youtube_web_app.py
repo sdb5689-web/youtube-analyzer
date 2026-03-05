@@ -153,6 +153,14 @@ def extract_keywords(text, top_n=15):
     counter = Counter(filtered)
     return [word for word, _ in counter.most_common(top_n)]
 
+def is_valid_transcript(tr: str) -> bool:
+    """실제 사용 가능한 대본인지 판단 (자막 없음/오류 문자열 제외)"""
+    if not tr or len(tr) < 20:
+        return False
+    BAD = ("자막 없음", "youtube-transcript-api 미설치",
+           "[Whisper 오류]", "미설치", "다운로드 실패")
+    return not any(tr.startswith(b) or b in tr[:40] for b in BAD)
+
 def summarize_text(text, max_chars=300):
     if not text or "자막 없음" in text or len(text) < 30:
         return "(요약 없음)"
@@ -725,22 +733,21 @@ def upload_to_gsheet(all_results_by_keyword, channel_stats, sort_label,
 
     # ── 시트 작성 헬퍼 ─────────────────────────────────────────
     def safe_write(ws, rows_data):
-        """시트에 데이터 쓰기 — gspread v6 호환 (update 방식)"""
+        """시트에 데이터 쓰기 — gspread v5/v6 완전 호환"""
         if not rows_data:
             return
-        # 문자열 변환 (None, 숫자 등 안전 처리)
-        safe = []
-        for row in rows_data:
-            safe.append([str(c) if c is not None else "" for c in row])
+        safe = [[str(c) if c is not None else "" for c in row]
+                for row in rows_data]
+        ws.clear()
         try:
-            # gspread v6: update(values, range_name)
-            ws.update(safe, "A1")
-        except TypeError:
+            # gspread v5/v6 공통: update(range_name, values)
+            ws.update("A1", safe)
+        except Exception:
             try:
-                # gspread v5 이하: update(range_name, values)
-                ws.update("A1", safe)
+                # gspread v6 일부 버전 키워드 방식
+                ws.update(range_name="A1", values=safe)
             except Exception:
-                # 최후 수단: append_rows
+                # 최후 수단: 200행씩 append
                 for i in range(0, len(safe), 200):
                     ws.append_rows(safe[i:i+200], value_input_option="RAW")
 
@@ -817,27 +824,33 @@ def upload_to_gsheet(all_results_by_keyword, channel_stats, sort_label,
 
     # ── 시트4: 대본 전문 ───────────────────────────────────────
     try:
-        ws4   = get_or_create_ws("대본 전문", rows=500, cols=4)
-        h4    = ["제목","채널","URL","대본 전문"]
+        ws4   = get_or_create_ws("대본 전문", rows=500, cols=5)
+        h4    = ["제목","채널","URL","대본 출처","대본 전문"]
         rows4 = [h4]
         MAX_CELL = 49000
-        for videos in all_results_by_keyword.values():
+        for kw, videos in all_results_by_keyword.items():
             for v in videos:
                 tr = v.get("transcript", "")
-                if tr and "자막 없음" not in tr and len(tr) > 20:
-                    if len(tr) > MAX_CELL:
-                        tr = tr[:MAX_CELL] + f"\n\n[⚠️ {MAX_CELL}자 초과로 잘림. 원본: {len(v['transcript'])}자]"
-                    rows4.append([v["title"], v["channelTitle"], v["url"], tr])
+                if not is_valid_transcript(tr):
+                    continue
+                whisper_flag = "🎙️ Whisper" if tr.startswith("[🎙️") else "📝 자막"
+                if len(tr) > MAX_CELL:
+                    tr = tr[:MAX_CELL] + f"\n\n[⚠️ {MAX_CELL}자 초과로 잘림. 원본: {len(v['transcript'])}자]"
+                rows4.append([v["title"], v["channelTitle"], v["url"], whisper_flag, tr])
         # 대본은 크므로 50행씩 나눠서 update
         ws4.clear()
         for i in range(0, len(rows4), 50):
             chunk = rows4[i:i+50]
-            safe_rows = [[str(c) if c is not None else "" for c in row] for row in chunk]
+            safe_rows = [[str(c) if c is not None else "" for c in row]
+                         for row in chunk]
+            start_cell = f"A{i + 1}"
             try:
-                start_row = i + 1
-                ws4.update(safe_rows, f"A{start_row}")
-            except TypeError:
-                ws4.update(f"A{i+1}", safe_rows)
+                ws4.update(start_cell, safe_rows)
+            except Exception:
+                try:
+                    ws4.update(range_name=start_cell, values=safe_rows)
+                except Exception:
+                    ws4.append_rows(safe_rows, value_input_option="RAW")
     except Exception as e:
         return False, f"❌ 시트4(대본 전문) 쓰기 오류: {e}"
 
@@ -1266,7 +1279,7 @@ streamlit run youtube_web_app.py
     total_channels = len(channel_stats)
     total_views    = sum(v["viewCount"] for vs in all_results.values() for v in vs)
     has_transcript = sum(1 for vs in all_results.values()
-                         for v in vs if v.get("transcript") and "자막 없음" not in v.get("transcript",""))
+                         for v in vs if is_valid_transcript(v.get("transcript", "")))
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -1414,11 +1427,7 @@ streamlit run youtube_web_app.py
                         _sep  = "=" * 60
                         _sep2 = "-" * 60
                         _transcript_text = v.get('transcript', '')
-                        _has_transcript  = bool(
-                            _transcript_text
-                            and '자막 없음' not in _transcript_text
-                            and len(_transcript_text) > 20
-                        )
+                        _has_transcript  = is_valid_transcript(_transcript_text)
                         _copy_text = (
 f"""{_sep}
 ■ 제목
@@ -1566,8 +1575,7 @@ f"""
         transcript_videos = [
             v for vs in all_results.values()
             for v in vs
-            if v.get("transcript") and "자막 없음" not in v.get("transcript","")
-               and len(v.get("transcript","")) > 20
+            if is_valid_transcript(v.get("transcript", ""))
         ]
         if not transcript_videos:
             st.info("자막이 있는 영상이 없습니다. '자막(대본) 가져오기'를 체크하고 재검색하세요.")
