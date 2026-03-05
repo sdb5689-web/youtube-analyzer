@@ -4,3 +4,5 @@ youtube-transcript-api
 openpyxl
 gspread
 google-auth
+openai
+yt-dlp
