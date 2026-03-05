@@ -1201,7 +1201,7 @@ streamlit run youtube_web_app.py
                             st.image(v["thumbnail"], use_container_width=True)
                         st.markdown(f"[▶ YouTube에서 보기]({v['url']})")
 
-                        # ── 📋 복사 버튼 (모든 정보 + 대본 전문) ──
+                        # ── 📋 전체 정보 복사 (st.code 방식 — Streamlit Cloud 호환) ──
                         _sep  = "=" * 60
                         _sep2 = "-" * 60
                         _transcript_text = v.get('transcript', '')
@@ -1214,54 +1214,44 @@ streamlit run youtube_web_app.py
 f"""{_sep}
 ■ 제목
 {v['title']}
-{_sep}
 
-● 채널명    : {v['channelTitle']}
-● URL       : {v['url']}
+■ 채널명
+{v['channelTitle']}
 
+■ URL
+{v['url']}
 {_sep2}
 ■ 핵심 키워드
-{_sep2}
 """ +
-(' · '.join(v.get('keywords', [])) if v.get('keywords') else '(키워드 없음)') +
+(' '.join(f'#{k}' for k in v.get('keywords', [])) if v.get('keywords') else '(키워드 없음)') +
 f"""
-
 {_sep2}
 ■ 요약
-{_sep2}
 """ +
 (v.get('summary') or '(요약 없음)') +
 f"""
-
 {_sep2}
 ■ 태그 ({len(v.get('tags', []))}개)
-{_sep2}
 """ +
-(' | '.join(v.get('tags', [])) if v.get('tags') else '(태그 없음)') +
+(','.join(f'#{t}' for t in v.get('tags', [])) if v.get('tags') else '(태그 없음)') +
 f"""
-
 {_sep2}
 ■ 영상 설명
-{_sep2}
 """ +
 (v.get('description') or '(설명 없음)') +
 f"""
-
 {_sep}
 ■ 대본 전문 {'✅' if _has_transcript else '❌ (자막 없음)'}
 {_sep}
 """ +
 (_transcript_text if _has_transcript else '이 영상에는 자막이 없습니다.') +
 f"""
-
 {_sep}
 """
                         )
-                        copy_button(
-                            copy_text=_copy_text,
-                            btn_label="📋 전체 정보 복사 (대본 포함)",
-                            btn_key=f"copy_{v['videoId']}"
-                        )
+                        # 토글 버튼으로 펼치기/접기
+                        with st.expander("📋 전체 정보 복사 (대본 포함) — 우측 상단 □ 아이콘으로 복사"):
+                            st.code(_copy_text, language=None)
 
                     with col_info:
                         st.markdown(f"""
