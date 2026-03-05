@@ -1048,18 +1048,33 @@ def main():
         openai_api_key_input = ""
         if fetch_transcript:
             use_whisper = st.checkbox(
-                "🎙️ 자막 없는 영상은 Whisper로 변환",
+                "🎙️ 자막 없는 영상은 Whisper로 변환  ⚠️ 로컬 PC 전용",
                 value=False,
-                help="자막이 없는 영상에 대해 OpenAI Whisper API로 음성을 텍스트로 변환합니다.\n"
-                     "OpenAI API 키가 필요하며, 영상당 약 $0.006/분 비용이 발생합니다.\n"
-                     "25분 이하 영상 권장."
+                help="자막이 없는 영상에 대해 OpenAI Whisper API로 음성을 텍스트로 변환합니다.\n\n"
+                     "⚠️ 주의: Streamlit Cloud(공유 앱)에서는 YouTube IP 차단으로 동작하지 않습니다.\n"
+                     "✅ 로컬 PC(streamlit run youtube_web_app.py)에서만 정상 작동합니다.\n\n"
+                     "비용: 영상당 약 $0.006/분 · 25분 이하 영상 권장"
             )
             if use_whisper:
+                # Streamlit Cloud 감지 (IS_STREAMLIT_CLOUD 환경변수 또는 hostname)
+                import os as _os_w
+                _is_cloud = (
+                    _os_w.environ.get("STREAMLIT_SHARING_MODE") == "1"
+                    or "streamlit.app" in _os_w.environ.get("HOSTNAME", "")
+                    or _os_w.path.exists("/mount/src")   # Streamlit Cloud 특징적 경로
+                )
+                if _is_cloud:
+                    st.warning(
+                        "⚠️ **Streamlit Cloud 환경 감지**\n\n"
+                        "YouTube가 클라우드 서버 IP를 차단하여 Whisper 다운로드가 불가합니다.\n"
+                        "**로컬 PC**에서 `streamlit run youtube_web_app.py`로 실행하면 정상 작동합니다."
+                    )
                 # Secrets에 키가 있으면 입력창 숨기고 자동 사용
                 if _s_openai_key:
                     openai_api_key_input = _s_openai_key
                     st.caption("✅ Secrets에서 OpenAI API Key 자동 로드됨")
-                    st.caption("💡 비용: ~$0.006/분 · 25분 이하 영상 권장")
+                    if not _is_cloud:
+                        st.caption("💡 비용: ~$0.006/분 · 25분 이하 영상 권장")
                 else:
                     openai_api_key_input = st.text_input(
                         "🔑 OpenAI API Key",
@@ -1073,7 +1088,8 @@ def main():
                         st.caption("⚠️ API 키를 입력하거나 Secrets에 OPENAI_API_KEY를 추가하세요.")
                     else:
                         st.caption("✅ Whisper API 키 설정됨")
-                    st.caption("💡 비용: ~$0.006/분 · 25분 이하 영상 권장")
+                    if not _is_cloud:
+                        st.caption("💡 비용: ~$0.006/분 · 25분 이하 영상 권장")
 
         st.markdown("---")
         search_btn = st.button("🚀 검색 시작", use_container_width=True, type="primary")
@@ -1366,11 +1382,24 @@ streamlit run youtube_web_app.py
     # ✅ FIX: Whisper 오류 요약 표시
     _we = st.session_state.get("whisper_errors", [])
     if _we:
-        with st.expander(f"⚠️ Whisper 변환 실패 영상 {len(_we)}개 (클릭하여 원인 확인)", expanded=True):
-            st.markdown("**Streamlit Cloud에서는 YouTube가 IP를 차단하여 Whisper 변환이 어렵습니다.**")
-            st.markdown("로컬 PC에서 실행하면 정상 작동합니다.")
-            for _e in _we:
-                st.caption(_e)
+        import os as _os_r
+        _is_cloud_r = (
+            _os_r.environ.get("STREAMLIT_SHARING_MODE") == "1"
+            or "streamlit.app" in _os_r.environ.get("HOSTNAME", "")
+            or _os_r.path.exists("/mount/src")
+        )
+        _all_403 = all("403" in e or "Forbidden" in e for e in _we)
+        if _is_cloud_r or _all_403:
+            # Cloud 환경 → 간결한 안내
+            st.warning(
+                f"🎙️ **Whisper 변환 불가 ({len(_we)}개 영상)**  \n"
+                "Streamlit Cloud에서는 YouTube IP 차단으로 오디오 다운로드가 불가합니다.  \n"
+                "✅ **로컬 PC**에서 실행하면 정상 작동합니다: `streamlit run youtube_web_app.py`"
+            )
+        else:
+            with st.expander(f"⚠️ Whisper 변환 실패 {len(_we)}개 (클릭하여 원인 확인)", expanded=True):
+                for _e in _we:
+                    st.caption(_e)
 
     # ── 요약 통계 ─────────────────────────────────────────────
     total_videos   = sum(len(v) for v in all_results.values())
