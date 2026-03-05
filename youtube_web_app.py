@@ -340,8 +340,8 @@ def get_transcript(video_id):
 # ================================================================
 def whisper_transcribe(video_id: str, openai_api_key: str) -> str:
     """
-    yt-dlp 로 오디오를 다운로드한 뒤 OpenAI Whisper API 로 텍스트 변환.
-    성공 시 변환된 텍스트, 실패 시 오류 메시지 반환.
+    yt-dlp 로 오디오를 직접 다운로드한 뒤 OpenAI Whisper API 로 텍스트 변환.
+    yt-dlp 직접 다운로드 방식 → YouTube 403 차단 우회.
     """
     import os, tempfile, subprocess, sys
 
@@ -371,58 +371,69 @@ def whisper_transcribe(video_id: str, openai_api_key: str) -> str:
     url = f"https://www.youtube.com/watch?v={video_id}"
     tmp_dir = tempfile.mkdtemp()
 
-    # OpenAI Whisper API 가 지원하는 확장자 (ffmpeg 없이 직접 전송 가능)
+    # Whisper API 지원 확장자
     SUPPORTED_EXTS = ('.m4a', '.webm', '.mp4', '.mp3', '.mpeg',
                       '.mpga', '.wav', '.ogg', '.opus')
+    MAX_BYTES = 25 * 1024 * 1024  # 25MB
 
     try:
-        import requests as _req
+        # ── Step 1: ffmpeg 존재 여부 확인 ──
+        import shutil as _shutil
+        has_ffmpeg = _shutil.which("ffmpeg") is not None
 
-        # ── Step 1: yt-dlp 로 오디오 스트림 URL 추출 (다운로드 없음) ──
-        ydl_opts_info = {
-            "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
-        }
-        audio_url = None
-        audio_ext = "m4a"
-        with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
-            info = ydl.extract_info(url, download=False)
-            if info:
-                audio_url = info.get("url")
-                audio_ext = info.get("ext", "m4a")
+        # ── Step 2: yt-dlp 직접 다운로드 (403 우회 핵심) ──
+        out_tmpl = os.path.join(tmp_dir, "audio.%(ext)s")
 
-        if not audio_url:
-            return "[Whisper 오류] 오디오 스트림 URL 추출 실패"
+        if has_ffmpeg:
+            # ffmpeg 있으면 mp3로 변환 (가장 호환성 좋음)
+            ydl_opts = {
+                "format": "bestaudio/best",
+                "outtmpl": out_tmpl,
+                "quiet": True,
+                "no_warnings": True,
+                "noplaylist": True,
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "64",
+                }],
+            }
+        else:
+            # ffmpeg 없으면 m4a/webm 직접 다운로드
+            ydl_opts = {
+                "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio[ext=opus]/bestaudio/best",
+                "outtmpl": out_tmpl,
+                "quiet": True,
+                "no_warnings": True,
+                "noplaylist": True,
+            }
 
-        # ── Step 2: requests 로 직접 다운로드 ──
-        audio_path = os.path.join(tmp_dir, f"audio.{audio_ext}")
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
-            ),
-            "Referer": "https://www.youtube.com/",
-        }
-        total_bytes = 0
-        MAX_BYTES = 25 * 1024 * 1024  # 25MB
-        with _req.get(audio_url, headers=headers, stream=True, timeout=60) as r:
-            r.raise_for_status()
-            with open(audio_path, "wb") as fp:
-                for chunk in r.iter_content(chunk_size=65536):
-                    if chunk:
-                        total_bytes += len(chunk)
-                        if total_bytes > MAX_BYTES:
-                            return (f"[Whisper 오류] 파일 크기 초과 "
-                                    f"(25MB 이상). 짧은 영상만 지원합니다.")
-                        fp.write(chunk)
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
 
-        if not os.path.exists(audio_path) or os.path.getsize(audio_path) < 1000:
-            return "[Whisper 오류] 오디오 다운로드 실패 (파일 크기 0)"
+        # ── Step 3: 다운로드된 파일 찾기 ──
+        all_files = [
+            os.path.join(tmp_dir, f)
+            for f in os.listdir(tmp_dir)
+            if os.path.isfile(os.path.join(tmp_dir, f))
+        ]
+        # 지원 확장자 우선
+        audio_files = [f for f in all_files if f.lower().endswith(SUPPORTED_EXTS)]
+        if not audio_files:
+            audio_files = all_files  # fallback: 모든 파일
 
-        # ── Step 3: OpenAI Whisper API 호출 ──
+        if not audio_files:
+            return "[Whisper 오류] 다운로드된 오디오 파일 없음"
+
+        audio_path = max(audio_files, key=os.path.getsize)
+        file_size  = os.path.getsize(audio_path)
+
+        if file_size < 1000:
+            return "[Whisper 오류] 오디오 파일이 너무 작음 (1KB 미만)"
+        if file_size > MAX_BYTES:
+            return "[Whisper 오류] 파일 크기 초과 (25MB). 25분 이하 영상만 지원합니다."
+
+        # ── Step 4: OpenAI Whisper API 호출 ──
         openai.api_key = openai_api_key
         with open(audio_path, "rb") as f:
             response = openai.audio.transcriptions.create(
@@ -438,11 +449,12 @@ def whisper_transcribe(video_id: str, openai_api_key: str) -> str:
         err = str(e)
         if "Private video" in err or "members-only" in err:
             return "[Whisper 오류] 비공개/멤버십 영상은 다운로드 불가"
-        return f"[Whisper 오류] 다운로드 실패: {err[:80]}"
+        if "Sign in" in err or "bot" in err.lower():
+            return "[Whisper 오류] YouTube 봇 차단. 잠시 후 다시 시도하세요."
+        return f"[Whisper 오류] 다운로드 실패: {err[:120]}"
     except Exception as e:
-        return f"[Whisper 오류] {str(e)[:100]}"
+        return f"[Whisper 오류] {str(e)[:120]}"
     finally:
-        # 임시 파일 정리
         import shutil
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
