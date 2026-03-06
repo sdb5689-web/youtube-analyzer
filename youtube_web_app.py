@@ -111,6 +111,25 @@ st.markdown("""
     div[data-testid="stExpander"] { border-radius:10px; border:1px solid #e0e0e0; }
     .stTabs [data-baseweb="tab"] { font-size:0.95rem; }
     .stButton button { border-radius:8px; }
+
+    /* ── 사이드바 간격 축소 (검색 시작 버튼 스크롤 없이 표시) ── */
+    [data-testid="stSidebar"] { overflow-y: auto; }
+    [data-testid="stSidebar"] hr { margin: 4px 0 !important; }
+    [data-testid="stSidebar"] h2 { margin-top: 4px !important; margin-bottom: 4px !important; font-size: 1.1rem !important; }
+    [data-testid="stSidebar"] h3 { margin-top: 4px !important; margin-bottom: 4px !important; font-size: 0.95rem !important; }
+    [data-testid="stSidebar"] .stTextInput { margin-bottom: 2px !important; }
+    [data-testid="stSidebar"] .stTextInput > div { margin-bottom: 0px !important; }
+    [data-testid="stSidebar"] .stTextArea { margin-bottom: 2px !important; }
+    [data-testid="stSidebar"] .stTextArea > div { margin-bottom: 0px !important; }
+    [data-testid="stSidebar"] .stSelectbox { margin-bottom: 2px !important; }
+    [data-testid="stSidebar"] .stSelectbox > div { margin-bottom: 0px !important; }
+    [data-testid="stSidebar"] .stSlider { margin-bottom: 2px !important; }
+    [data-testid="stSidebar"] .stSlider > div { margin-bottom: 0px !important; }
+    [data-testid="stSidebar"] .stCheckbox { margin-bottom: 2px !important; }
+    [data-testid="stSidebar"] .stCheckbox > div { margin-bottom: 0px !important; }
+    [data-testid="stSidebar"] .stCaption { margin-top: 0px !important; margin-bottom: 1px !important; }
+    [data-testid="stSidebar"] .element-container { margin-bottom: 2px !important; }
+    [data-testid="stSidebar"] .stButton { margin-top: 4px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1010,14 +1029,14 @@ def main():
         if _s_api_key:
             st.caption("✅ secrets.toml 에서 API 키 자동 로드됨")
 
-        st.markdown("---")
+        st.markdown('<hr style="margin:6px 0">', unsafe_allow_html=True)
         st.markdown("### 🔍 검색 옵션")
 
         keywords_input = st.text_area(
             "검색 키워드 (쉼표로 여러 개 입력)",
             value=_s_keywords,
             placeholder="예: 비타민D 효능, 50대 영양제",
-            height=80
+            height=65
         )
 
         _max_default = int(_s_max_count) if _s_max_count.isdigit() else 20
@@ -1091,7 +1110,7 @@ def main():
                     if not _is_cloud:
                         st.caption("💡 비용: ~$0.006/분 · 25분 이하 영상 권장")
 
-        st.markdown("---")
+        st.markdown('<hr style="margin:6px 0">', unsafe_allow_html=True)
         search_btn = st.button("🚀 검색 시작", use_container_width=True, type="primary")
 
         # ✅ FIX: Secrets 로드 현황 디버그 패널
