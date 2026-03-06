@@ -89,6 +89,7 @@ st.markdown("""
     .badge-good  { background:#FF8C00; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
     .badge-new   { background:#4CAF50; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
     .badge-norm  { background:#9E9E9E; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
+    .badge-shorts { background:#FF0050; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
 
     .stat-row { display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; }
     .stat-item{ background:#f0f2f6; border-radius:6px; padding:4px 12px; font-size:0.85rem; }
@@ -158,6 +159,29 @@ def parse_duration(dur_raw):
     d = {k: int(v) for v, k in m}
     h, mi, s = d.get('H',0), d.get('M',0), d.get('S',0)
     return f"{h}:{mi:02d}:{s:02d}" if h > 0 else f"{mi}:{s:02d}"
+
+def parse_duration_seconds(dur_str):
+    """'1:30' 또는 '0:45' 형식 → 초 단위 정수 반환"""
+    try:
+        parts = dur_str.split(':')
+        if len(parts) == 3:   # h:mm:ss
+            return int(parts[0])*3600 + int(parts[1])*60 + int(parts[2])
+        elif len(parts) == 2: # m:ss
+            return int(parts[0])*60 + int(parts[1])
+        return 0
+    except:
+        return 0
+
+def is_shorts(video):
+    """쇼츠 판별: 60초 이하 + #Shorts 태그 or 제목 포함"""
+    sec = parse_duration_seconds(video.get("duration", "0:00"))
+    tags = [t.lower() for t in video.get("tags", [])]
+    title = video.get("title", "").lower()
+    desc  = video.get("description", "").lower()
+    shorts_keyword = ("shorts" in tags or "#shorts" in title
+                      or "#shorts" in desc or "#쇼츠" in title
+                      or "#쇼츠" in desc)
+    return sec <= 60 or (sec <= 180 and shorts_keyword)
 
 def extract_keywords(text, top_n=15):
     if not text or "자막 없음" in text or len(text) < 50:
@@ -234,17 +258,23 @@ def get_badge(rank, view_count):
 # ================================================================
 # YouTube API 함수
 # ================================================================
-def search_youtube(api_key, keyword, max_r, order_api):
+def search_youtube(api_key, keyword, max_r, order_api, video_type="전체"):
     video_ids = []
     token = None
+    # 쇼츠 선택 시 API 레벨에서 4분 미만으로 pre-filter (API quota 절약)
+    fetch_extra = max_r  # 후처리 필터 감안해 더 많이 가져옴
+    if video_type in ("쇼츠", "동영상"):
+        fetch_extra = min(max_r * 3, 50)  # 필터 손실 보정
     while len(video_ids) < max_r:
         params = {
             "key": api_key, "q": keyword,
             "part": "id", "type": "video",
-            "maxResults": min(50, max_r - len(video_ids)),
+            "maxResults": min(50, fetch_extra - len(video_ids)),
             "order": order_api,
             "regionCode": "KR", "relevanceLanguage": "ko"
         }
+        if video_type == "쇼츠":
+            params["videoDuration"] = "short"   # 4분 미만 pre-filter
         if token: params["pageToken"] = token
         try:
             r = requests.get(
@@ -1056,6 +1086,14 @@ def main():
         SORT_MAP = {"조회수순":"viewCount","최신순":"date","관련성순":"relevance","평점순":"rating"}
         order_api = SORT_MAP[sort_option]
 
+        video_type = st.radio(
+            "📹 영상 종류",
+            options=["전체", "동영상", "쇼츠"],
+            index=0,
+            horizontal=True,
+            help="전체: 모든 영상 | 동영상: 60초 초과 일반 영상 | 쇼츠: 60초 이하 세로형 영상"
+        )
+
         fetch_transcript = st.checkbox(
             "📜 자막(대본) 가져오기",
             value=True,
@@ -1265,7 +1303,7 @@ def main():
             status_text.info(f"🔍 [{kw}] 검색 중... ({ki+1}/{total_steps})")
 
             # 1) 검색
-            video_ids, err = search_youtube(api_key, kw, max_count, order_api)
+            video_ids, err = search_youtube(api_key, kw, max_count, order_api, video_type)
             if err:
                 st.error(f"❌ 오류: {err}")
                 st.stop()
@@ -1278,6 +1316,24 @@ def main():
             # 2) 상세 정보
             status_text.info(f"📊 [{kw}] 영상 상세 정보 수집 중...")
             videos = fetch_video_details(api_key, video_ids)
+
+            # 2-1) 영상 종류 필터링 (쇼츠 / 동영상)
+            if video_type == "쇼츠":
+                videos = [v for v in videos if is_shorts(v)]
+                if not videos:
+                    st.warning(f"⚠️ [{kw}] 쇼츠 영상이 없습니다.")
+                    all_results[kw] = []
+                    progress_bar.progress((ki+1)/total_steps)
+                    continue
+            elif video_type == "동영상":
+                videos = [v for v in videos if not is_shorts(v)]
+                if not videos:
+                    st.warning(f"⚠️ [{kw}] 일반 동영상이 없습니다.")
+                    all_results[kw] = []
+                    progress_bar.progress((ki+1)/total_steps)
+                    continue
+            # max_count 초과 제거 (pre-filter 감안해 더 많이 가져왔으므로)
+            videos = videos[:max_count]
 
             # 3) 구독자
             status_text.info(f"👥 [{kw}] 구독자 수 수집 중...")
@@ -1556,6 +1612,7 @@ streamlit run youtube_web_app.py
                 continue
 
             for v in videos:
+                _shorts_badge = "<span class='badge-shorts'>📱 Shorts</span>" if is_shorts(v) else ""
                 badge_html = {
                     "🥇":"<span class='badge-hot'>🥇 1위</span>",
                     "🥈":"<span class='badge-good'>🥈 2위</span>",
@@ -1563,6 +1620,7 @@ streamlit run youtube_web_app.py
                     "🔥":"<span class='badge-hot'>🔥 인기</span>",
                     "⭐":"<span class='badge-new'>⭐ 우수</span>",
                 }.get(v.get("badge","▶"), f"<span class='badge-norm'>#{v.get('rank',0)}위</span>")
+                badge_html = badge_html + (" " + _shorts_badge if _shorts_badge else "")
 
                 with st.expander(f"{v.get('badge','▶')} #{v.get('rank',0)}위  {v['title']}", expanded=(v.get('rank',0)<=3)):
                     col_img, col_info = st.columns([1, 3])
