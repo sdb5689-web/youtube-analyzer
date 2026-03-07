@@ -523,7 +523,7 @@ def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
     try:
         import google.generativeai as genai
     except ImportError:
-        return "[Gemini 오류] google-generativeai 라이브러리가 설치되지 않았습니다.\npip install google-generativeai"
+        return "[Gemini 오류] google-generativeai 미설치 → 터미널에서: pip install google-generativeai"
 
     video_url = f"https://www.youtube.com/watch?v={video_id}"
     prompt = """이 YouTube 영상의 내용을 상세히 분석해주세요.
@@ -531,10 +531,10 @@ def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
 다음 형식으로 응답해주세요:
 
 [요약]
-(3~5문장으로 핸심 내용 요약)
+(3~5문장으로 핵심 내용 요약)
 
 [주요 내용]
-(- 항목별로 영상에서 다룬지는 핵심 내용 5~10개)
+(- 항목별로 영상에서 다루는 핵심 내용 5~10개)
 
 [대본]
 (영상의 실제 대화 내용을 가능한 한 자세히 한국어로 작성)
@@ -542,27 +542,42 @@ def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
     try:
         genai.configure(api_key=gemini_api_key)
         model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(
-            contents=[
+
+        # 방법 1: genai.protos 사용 (가장 안정적)
+        try:
+            response = model.generate_content([
+                prompt,
+                genai.protos.Part(
+                    file_data=genai.protos.FileData(
+                        mime_type="video/mp4",
+                        file_uri=video_url
+                    )
+                )
+            ])
+        except Exception:
+            # 방법 2: 딕셔너리 방식 폴백
+            response = model.generate_content([
                 {"role": "user", "parts": [
                     {"text": prompt},
-                    {"file_data": {"file_uri": video_url}}
+                    {"file_data": {"file_uri": video_url, "mime_type": "video/mp4"}}
                 ]}
-            ]
-        )
-        result_text = response.text.strip()
+            ])
+
+        result_text = response.text.strip() if response.text else ""
         if not result_text:
-            return "[Gemini 오류] 응답이 비어있습니다."
+            return "[Gemini 오류] 응답이 비어있습니다. 영상이 비공개이거나 지역 제한일 수 있습니다."
         return f"[\U0001f916 Gemini 분석]\n{result_text}"
     except Exception as e:
         err = str(e)
         if "API_KEY_INVALID" in err or "invalid" in err.lower():
-            return "[Gemini 오류] API 키가 유효하지 않습니다. GEMINI_API_KEY를 확인하세요."
+            return f"[Gemini 오류] API 키 인증 실패. GEMINI_API_KEY 확인 필요\n상세: {err[:80]}"
         if "quota" in err.lower() or "429" in err:
-            return "[Gemini 오류] API 할당량 초과. 잠시 후 다시 시도하세요."
+            return f"[Gemini 오류] API 할당량 초과. 잠시 후 재시도\n상세: {err[:80]}"
         if "not found" in err.lower() or "404" in err:
-            return "[Gemini 오류] 영상을 찾을 수 없습니다 (비공개 또는 멤버십 전용)."
-        return f"[Gemini 오류] {err[:120]}"
+            return f"[Gemini 오류] 영상 접근 불가 (비공개/멤버십 전용)\n상세: {err[:80]}"
+        if "unsupported" in err.lower() or "mime" in err.lower():
+            return f"[Gemini 오류] 영상 형식 미지원\n상세: {err[:80]}"
+        return f"[Gemini 오류] {err[:150]}"
 
 
 def get_transcript_with_whisper(video_id: str,
@@ -1458,10 +1473,11 @@ def main():
                             _no_caption = False
                         else:
                             err_msg = gemini_result or "[Gemini 오류] 알 수 없는 오류"
-                            _whisper_errors.append(f"• {v['title'][:35]} [Gemini]: {err_msg}")
-                            # Whisper 폴백 모드가 아니면 오류 저장
+                            _whisper_errors.append(f"• {v['title'][:35]} [Gemini 실패]: {err_msg[:120]}")
+                            # Whisper 폴백 모드가 아니면 오류를 transcript에 저장 + 화면 표시
                             if not use_whisper:
-                                raw = f"자막 없음 (Gemini 실패: {err_msg[:60]})"
+                                raw = f"자막 없음 (Gemini 실패)"
+                                st.warning(f"🤖 Gemini 실패: {v['title'][:30]}\n→ {err_msg[:120]}")
 
                     # ③ 자막 없을 때(Gemini도 실패 or 미사용) Whisper 시도
                     if _no_caption and use_whisper and openai_api_key_input:
@@ -1567,24 +1583,44 @@ streamlit run youtube_web_app.py
     # ✅ FIX: Whisper 오류 요약 표시
     _we = st.session_state.get("whisper_errors", [])
     if _we:
-        import os as _os_r
-        _is_cloud_r = (
-            _os_r.environ.get("STREAMLIT_SHARING_MODE") == "1"
-            or "streamlit.app" in _os_r.environ.get("HOSTNAME", "")
-            or _os_r.path.exists("/mount/src")
-        )
-        _all_403 = all("403" in e or "Forbidden" in e for e in _we)
-        if _is_cloud_r or _all_403:
-            # Cloud 환경 → 간결한 안내
-            st.warning(
-                f"🎙️ **Whisper 변환 불가 ({len(_we)}개 영상)**  \n"
-                "Streamlit Cloud에서는 YouTube IP 차단으로 오디오 다운로드가 불가합니다.  \n"
-                "✅ **로컬 PC**에서 실행하면 정상 작동합니다: `streamlit run youtube_web_app.py`"
-            )
-        else:
-            with st.expander(f"⚠️ Whisper 변환 실패 {len(_we)}개 (클릭하여 원인 확인)", expanded=True):
-                for _e in _we:
+        _gemini_errs  = [e for e in _we if "Gemini" in e]
+        _whisper_errs = [e for e in _we if "Whisper" in e]
+
+        # ── Gemini 오류 패널 ──
+        if _gemini_errs:
+            with st.expander(f"🤖 Gemini 분석 실패 {len(_gemini_errs)}개 (클릭하여 원인 확인)", expanded=True):
+                _first = _gemini_errs[0]
+                if "미설치" in _first or "pip install" in _first:
+                    st.error("📦 **google-generativeai 미설치**\n터미널에서 실행 후 앱 재시작:")
+                    st.code("pip install google-generativeai", language="bash")
+                elif "API 키" in _first or "인증" in _first:
+                    st.error("🔑 **GEMINI_API_KEY 인증 실패**\nsecrets.toml의 GEMINI_API_KEY를 확인하세요.")
+                elif "할당량" in _first or "quota" in _first.lower():
+                    st.warning("⏳ **Gemini API 할당량 초과**\n잠시 후 재시도하거나 Gemini Pro 플랜 업그레이드가 필요합니다.")
+                else:
+                    st.warning("⚠️ Gemini 오류 발생 — 상세 내용:")
+                for _e in _gemini_errs:
                     st.caption(_e)
+
+        # ── Whisper 오류 패널 ──
+        if _whisper_errs:
+            import os as _os_r
+            _is_cloud_r = (
+                _os_r.environ.get("STREAMLIT_SHARING_MODE") == "1"
+                or "streamlit.app" in _os_r.environ.get("HOSTNAME", "")
+                or _os_r.path.exists("/mount/src")
+            )
+            _all_403 = all("403" in e or "Forbidden" in e for e in _whisper_errs)
+            if _is_cloud_r or _all_403:
+                st.warning(
+                    f"🎙️ **Whisper 변환 불가 ({len(_whisper_errs)}개 영상)**  \n"
+                    "Streamlit Cloud에서는 YouTube IP 차단으로 오디오 다운로드가 불가합니다.  \n"
+                    "✅ **로컬 PC**에서 실행하면 정상 작동합니다."
+                )
+            else:
+                with st.expander(f"⚠️ Whisper 변환 실패 {len(_whisper_errs)}개 (클릭하여 원인 확인)", expanded=True):
+                    for _e in _whisper_errs:
+                        st.caption(_e)
 
     # ── 요약 통계 ─────────────────────────────────────────────
     total_videos   = sum(len(v) for v in all_results.values())
