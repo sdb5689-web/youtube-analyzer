@@ -539,45 +539,60 @@ def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
 [대본]
 (영상의 실제 대화 내용을 가능한 한 자세히 한국어로 작성)
 """
-    try:
-        genai.configure(api_key=gemini_api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-
-        # 방법 1: genai.protos 사용 (가장 안정적)
+    # 시도할 모델 목록 (최신 → 구버전 순)
+    _models = [
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+    ]
+    last_err = ""
+    for _model_name in _models:
         try:
-            response = model.generate_content([
-                prompt,
-                genai.protos.Part(
-                    file_data=genai.protos.FileData(
-                        mime_type="video/mp4",
-                        file_uri=video_url
-                    )
-                )
-            ])
-        except Exception:
-            # 방법 2: 딕셔너리 방식 폴백
-            response = model.generate_content([
-                {"role": "user", "parts": [
-                    {"text": prompt},
-                    {"file_data": {"file_uri": video_url, "mime_type": "video/mp4"}}
-                ]}
-            ])
+            genai.configure(api_key=gemini_api_key)
+            model = genai.GenerativeModel(_model_name)
 
-        result_text = response.text.strip() if response.text else ""
-        if not result_text:
-            return "[Gemini 오류] 응답이 비어있습니다. 영상이 비공개이거나 지역 제한일 수 있습니다."
-        return f"[\U0001f916 Gemini 분석]\n{result_text}"
-    except Exception as e:
-        err = str(e)
-        if "API_KEY_INVALID" in err or "invalid" in err.lower():
-            return f"[Gemini 오류] API 키 인증 실패. GEMINI_API_KEY 확인 필요\n상세: {err[:80]}"
-        if "quota" in err.lower() or "429" in err:
-            return f"[Gemini 오류] API 할당량 초과. 잠시 후 재시도\n상세: {err[:80]}"
-        if "not found" in err.lower() or "404" in err:
-            return f"[Gemini 오류] 영상 접근 불가 (비공개/멤버십 전용)\n상세: {err[:80]}"
-        if "unsupported" in err.lower() or "mime" in err.lower():
-            return f"[Gemini 오류] 영상 형식 미지원\n상세: {err[:80]}"
-        return f"[Gemini 오류] {err[:150]}"
+            # 방법 1: genai.protos 사용
+            try:
+                response = model.generate_content([
+                    prompt,
+                    genai.protos.Part(
+                        file_data=genai.protos.FileData(
+                            mime_type="video/mp4",
+                            file_uri=video_url
+                        )
+                    )
+                ])
+            except Exception:
+                # 방법 2: 딕셔너리 방식 폴백
+                response = model.generate_content([
+                    {"role": "user", "parts": [
+                        {"text": prompt},
+                        {"file_data": {"file_uri": video_url, "mime_type": "video/mp4"}}
+                    ]}
+                ])
+
+            result_text = response.text.strip() if response.text else ""
+            if not result_text:
+                last_err = f"[Gemini 오류] {_model_name}: 응답 비어있음 (비공개/지역제한 영상일 수 있음)"
+                continue
+            return f"[\U0001f916 Gemini 분석 ({_model_name})]\n{result_text}"
+
+        except Exception as e:
+            err = str(e)
+            last_err = f"[Gemini 오류] {_model_name}: {err[:100]}"
+            # 모델 없음(404) 오류면 다음 모델 시도
+            if "not found" in err.lower() or "404" in err or "not support" in err.lower():
+                continue
+            # 그 외 오류(인증, 할당량 등)는 즉시 반환
+            if "API_KEY_INVALID" in err or "invalid" in err.lower():
+                return f"[Gemini 오류] API 키 인증 실패. GEMINI_API_KEY 확인 필요\n상세: {err[:80]}"
+            if "quota" in err.lower() or "429" in err:
+                return f"[Gemini 오류] API 할당량 초과. 잠시 후 재시도\n상세: {err[:80]}"
+            continue
+
+    return last_err or "[Gemini 오류] 사용 가능한 모델 없음. API 키와 할당량을 확인하세요."
 
 
 def get_transcript_with_whisper(video_id: str,
