@@ -508,6 +508,63 @@ def whisper_transcribe(video_id: str, openai_api_key: str) -> str:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+# ================================================================
+# 🤖 Gemini 영상 분석 함수
+# ================================================================
+def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
+    """
+    Gemini API로 YouTube URL을 직접 분석여 대본+요약+키워드 추출
+    - 자막 없는 영상도 분석 가능
+    - Streamlit Cloud에서도 정상 작동 (URL만 전달)
+    - 최대 1~2시간 영상 지원
+    """
+    if not gemini_api_key:
+        return "[Gemini 오류] API 키가 없습니다."
+    try:
+        import google.generativeai as genai
+    except ImportError:
+        return "[Gemini 오류] google-generativeai 라이브러리가 설치되지 않았습니다.\npip install google-generativeai"
+
+    video_url = f"https://www.youtube.com/watch?v={video_id}"
+    prompt = """이 YouTube 영상의 내용을 상세히 분석해주세요.
+
+다음 형식으로 응답해주세요:
+
+[요약]
+(3~5문장으로 핸심 내용 요약)
+
+[주요 내용]
+(- 항목별로 영상에서 다룬지는 핵심 내용 5~10개)
+
+[대본]
+(영상의 실제 대화 내용을 가능한 한 자세히 한국어로 작성)
+"""
+    try:
+        genai.configure(api_key=gemini_api_key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(
+            contents=[
+                {"role": "user", "parts": [
+                    {"text": prompt},
+                    {"file_data": {"file_uri": video_url}}
+                ]}
+            ]
+        )
+        result_text = response.text.strip()
+        if not result_text:
+            return "[Gemini 오류] 응답이 비어있습니다."
+        return f"[\U0001f916 Gemini 분석]\n{result_text}"
+    except Exception as e:
+        err = str(e)
+        if "API_KEY_INVALID" in err or "invalid" in err.lower():
+            return "[Gemini 오류] API 키가 유효하지 않습니다. GEMINI_API_KEY를 확인하세요."
+        if "quota" in err.lower() or "429" in err:
+            return "[Gemini 오류] API 할당량 초과. 잠시 후 다시 시도하세요."
+        if "not found" in err.lower() or "404" in err:
+            return "[Gemini 오류] 영상을 찾을 수 없습니다 (비공개 또는 멤버십 전용)."
+        return f"[Gemini 오류] {err[:120]}"
+
+
 def get_transcript_with_whisper(video_id: str,
                                  openai_api_key: str = "") -> str:
     """
@@ -989,7 +1046,8 @@ def main():
     _s_sort       = _secret("DEFAULT_SORT", "조회수순")
     _s_email      = _secret("GSHEET_SHARE_EMAIL")
     _s_existing   = _secret("GSHEET_EXISTING_ID")
-    _s_openai_key = _secret("OPENAI_API_KEY")
+    _s_openai_key  = _secret("OPENAI_API_KEY")
+    _s_gemini_key  = _secret("GEMINI_API_KEY")
 
     # ✅ Streamlit Cloud Secrets의 gcp_service_account 자동 로드
     _s_gcp_creds = None
@@ -1100,38 +1158,67 @@ def main():
             help="체크 시 각 영상의 자막을 가져와 키워드 추출과 요약을 수행합니다. 영상이 많으면 시간이 걸립니다."
         )
 
-        # ── Whisper STT 설정 ──────────────────────────────────
-        use_whisper = False
+        # ── 자막 없는 영상 처리 방식 설정 ─────────────────────────
+        use_whisper          = False
+        use_gemini           = False
         openai_api_key_input = ""
+        gemini_api_key_input = ""
+
         if fetch_transcript:
-            use_whisper = st.checkbox(
-                "🎙️ 자막 없는 영상은 Whisper로 변환  ⚠️ 로컬 PC 전용",
-                value=False,
-                help="자막이 없는 영상에 대해 OpenAI Whisper API로 음성을 텍스트로 변환합니다.\n\n"
-                     "⚠️ 주의: Streamlit Cloud(공유 앱)에서는 YouTube IP 차단으로 동작하지 않습니다.\n"
-                     "✅ 로컬 PC(streamlit run youtube_web_app.py)에서만 정상 작동합니다.\n\n"
-                     "비용: 영상당 약 $0.006/분 · 25분 이하 영상 권장"
+            st.caption("📡 자막 없는 영상 처리 방식")
+            _stt_mode = st.radio(
+                "자막 없는 영상 처리",
+                options=[
+                    "사용 안 함",
+                    "🤖 Gemini 분석",
+                    "🎙️ Whisper 변환",
+                    "🤖→🎙️ Gemini 우선 + Whisper 폴백"
+                ],
+                index=0,
+                label_visibility="collapsed",
+                help="Gemini: YouTube URL만 전달 → 클라우드·로컬 모두 OK\n"
+                     "Whisper: 오디오 다운로드 → 로컬 PC 전용\n"
+                     "Gemini+Whisper: Gemini 실패 시 Whisper로 자동 재시도"
             )
+
+            use_gemini  = "Gemini"  in _stt_mode
+            use_whisper = "Whisper" in _stt_mode
+
+            # ── Gemini 키 UI ─────────────────────────────────────────
+            if use_gemini:
+                if _s_gemini_key:
+                    gemini_api_key_input = _s_gemini_key
+                    st.caption("✅ GEMINI_API_KEY 자동 로드됨")
+                    st.caption("💡 Gemini 1.5 Flash · 무료 티어 있음 · 클라우드 OK")
+                else:
+                    gemini_api_key_input = st.text_input(
+                        "🔑 Gemini API Key",
+                        value="",
+                        type="password",
+                        placeholder="AIzaSy...",
+                        help="https://aistudio.google.com/app/apikey 에서 무료 발급\n"
+                             "또는 secrets.toml에 GEMINI_API_KEY 추가"
+                    )
+                    if not gemini_api_key_input:
+                        st.caption("⚠️ GEMINI_API_KEY를 입력하거나 secrets.toml에 추가하세요.")
+                    else:
+                        st.caption("✅ Gemini API 키 설정됨")
+
+            # ── Whisper 키 UI ────────────────────────────────────────
             if use_whisper:
-                # Streamlit Cloud 감지 (IS_STREAMLIT_CLOUD 환경변수 또는 hostname)
                 import os as _os_w
                 _is_cloud = (
                     _os_w.environ.get("STREAMLIT_SHARING_MODE") == "1"
                     or "streamlit.app" in _os_w.environ.get("HOSTNAME", "")
-                    or _os_w.path.exists("/mount/src")   # Streamlit Cloud 특징적 경로
+                    or _os_w.path.exists("/mount/src")
                 )
                 if _is_cloud:
-                    st.warning(
-                        "⚠️ **Streamlit Cloud 환경 감지**\n\n"
-                        "YouTube가 클라우드 서버 IP를 차단하여 Whisper 다운로드가 불가합니다.\n"
-                        "**로컬 PC**에서 `streamlit run youtube_web_app.py`로 실행하면 정상 작동합니다."
-                    )
-                # Secrets에 키가 있으면 입력창 숨기고 자동 사용
+                    st.warning("⚠️ Whisper는 Streamlit Cloud에서 IP 차단으로 동작하지 않습니다.\n"
+                               "✅ 로컬 PC에서만 정상 작동합니다.")
                 if _s_openai_key:
                     openai_api_key_input = _s_openai_key
-                    st.caption("✅ Secrets에서 OpenAI API Key 자동 로드됨")
-                    if not _is_cloud:
-                        st.caption("💡 비용: ~$0.006/분 · 25분 이하 영상 권장")
+                    st.caption("✅ OPENAI_API_KEY 자동 로드됨")
+                    st.caption("💡 비용: ~$0.006/분 · 25분 이하 영상 권장")
                 else:
                     openai_api_key_input = st.text_input(
                         "🔑 OpenAI API Key",
@@ -1139,14 +1226,12 @@ def main():
                         type="password",
                         placeholder="sk-...",
                         help="https://platform.openai.com/api-keys 에서 발급\n"
-                             "또는 Streamlit Secrets에 OPENAI_API_KEY 추가"
+                             "또는 secrets.toml에 OPENAI_API_KEY 추가"
                     )
                     if not openai_api_key_input:
-                        st.caption("⚠️ API 키를 입력하거나 Secrets에 OPENAI_API_KEY를 추가하세요.")
+                        st.caption("⚠️ OPENAI_API_KEY를 입력하거나 secrets.toml에 추가하세요.")
                     else:
                         st.caption("✅ Whisper API 키 설정됨")
-                    if not _is_cloud:
-                        st.caption("💡 비용: ~$0.006/분 · 25분 이하 영상 권장")
 
         st.markdown('<hr style="margin:6px 0">', unsafe_allow_html=True)
         search_btn = st.button("🚀 검색 시작", use_container_width=True, type="primary")
@@ -1154,12 +1239,15 @@ def main():
         # ✅ FIX: Secrets 로드 현황 디버그 패널
         with st.expander("🔧 Secrets 로드 현황 (클릭)", expanded=False):
             st.caption(f"YOUTUBE_API_KEY: {'✅ 로드됨' if _s_api_key else '❌ 없음'}")
-            st.caption(f"OPENAI_API_KEY: {'✅ 로드됨 (' + _s_openai_key[:8] + '...)' if _s_openai_key else '❌ 없음 → 수동 입력 필요'}")
+            st.caption(f"OPENAI_API_KEY: {'✅ 로드됨 (' + _s_openai_key[:8] + '...)' if _s_openai_key else '❌ 없음 → Whisper 사용 시 필요'}")
+            st.caption(f"GEMINI_API_KEY: {'✅ 로드됨 (' + _s_gemini_key[:8] + '...)' if _s_gemini_key else '❌ 없음 → Gemini 사용 시 필요'}")
             st.caption(f"GSHEET_SHARE_EMAIL: {'✅ ' + _s_email if _s_email else '❌ 없음'}")
             st.caption(f"GSHEET_EXISTING_ID: {'✅ 설정됨' if _s_existing else '❌ 없음'}")
             st.caption(f"gcp_service_account: {'✅ 로드됨' if _s_gcp_creds else '❌ 없음'}")
+            if not _s_gemini_key:
+                st.info("💡 GEMINI_API_KEY 설정 방법:\n```\nGEMINI_API_KEY = \"AIzaSy...\"\n```\nhttps://aistudio.google.com/app/apikey 에서 무료 발급")
             if not _s_openai_key:
-                st.info("💡 OPENAI_API_KEY 설정 방법:\n```\nOPENAI_API_KEY = \"sk-proj-...\"\n```\nStreamlit Cloud → Settings → Secrets에 추가 후 앱 재시작")
+                st.info("💡 OPENAI_API_KEY 설정 방법:\n```\nOPENAI_API_KEY = \"sk-proj-...\"\n```")
 
         st.markdown("---")
         st.markdown("### 📊 Google Sheets 설정")
@@ -1339,36 +1427,58 @@ def main():
             status_text.info(f"👥 [{kw}] 구독자 수 수집 중...")
             videos = fetch_subscribers(api_key, videos)
 
-            # 4) 자막 (+ Whisper 폴백)
+            # 4) 자막 → Gemini / Whisper 폴백
             if fetch_transcript:
                 for vi, v in enumerate(videos):
-                    # 상태 메시지
-                    whisper_note = " 🎙️Whisper 대기중" if use_whisper and openai_api_key_input else ""
-                    status_text.info(f"📜 [{kw}] 자막 수집 중... ({vi+1}/{len(videos)}) - {v['title'][:30]}...{whisper_note}")
+                    _mode_note = ""
+                    if use_gemini and gemini_api_key_input:
+                        _mode_note = " 🤖Gemini 대기중"
+                    elif use_whisper and openai_api_key_input:
+                        _mode_note = " 🎙️Whisper 대기중"
+                    status_text.info(f"📜 [{kw}] 자막 수집 중... ({vi+1}/{len(videos)}) - {v['title'][:30]}...{_mode_note}")
 
-                    if use_whisper and openai_api_key_input:
-                        raw = get_transcript(v["videoId"])
-                        # 자막 없으면 Whisper 시도
-                        if (not raw or
-                            raw.startswith("자막 없음") or
-                            raw.startswith("youtube-transcript")):
-                            status_text.info(
-                                f"🎙️ [{kw}] Whisper 변환 중... ({vi+1}/{len(videos)}) "
-                                f"- {v['title'][:25]}... (수 분 소요될 수 있습니다)"
-                            )
-                            raw = whisper_transcribe(v["videoId"], openai_api_key_input)
-                            if raw and not raw.startswith("[Whisper 오류]"):
-                                v["transcript"] = f"[🎙️ Whisper 변환]\n{raw}"
-                            else:
-                                # 오류 내용을 화면에 표시
-                                err_msg = raw if raw else "[Whisper 오류] 알 수 없는 오류"
-                                _whisper_errors.append(f"• {v['title'][:35]}: {err_msg}")
-                                st.warning(f"🎙️ Whisper 변환 실패: {v['title'][:30]}\n→ {err_msg}")
-                                v["transcript"] = f"자막 없음 (Whisper 실패: {err_msg[:60]})"
+                    # ① 먼저 유튜브 자막 시도
+                    raw = get_transcript(v["videoId"])
+                    _no_caption = (
+                        not raw
+                        or raw.startswith("자막 없음")
+                        or raw.startswith("youtube-transcript")
+                        or raw.startswith("[Whisper")
+                    )
+
+                    # ② 자막 없을 때 Gemini 시도
+                    if _no_caption and use_gemini and gemini_api_key_input:
+                        status_text.info(
+                            f"🤖 [{kw}] Gemini 분석 중... ({vi+1}/{len(videos)}) "
+                            f"- {v['title'][:25]}..."
+                        )
+                        gemini_result = gemini_analyze_video(v["videoId"], gemini_api_key_input)
+                        if gemini_result and not gemini_result.startswith("[Gemini 오류]"):
+                            raw = gemini_result
+                            _no_caption = False
                         else:
-                            v["transcript"] = raw
-                    else:
-                        v["transcript"] = get_transcript(v["videoId"])
+                            err_msg = gemini_result or "[Gemini 오류] 알 수 없는 오류"
+                            _whisper_errors.append(f"• {v['title'][:35]} [Gemini]: {err_msg}")
+                            # Whisper 폴백 모드가 아니면 오류 저장
+                            if not use_whisper:
+                                raw = f"자막 없음 (Gemini 실패: {err_msg[:60]})"
+
+                    # ③ 자막 없을 때(Gemini도 실패 or 미사용) Whisper 시도
+                    if _no_caption and use_whisper and openai_api_key_input:
+                        status_text.info(
+                            f"🎙️ [{kw}] Whisper 변환 중... ({vi+1}/{len(videos)}) "
+                            f"- {v['title'][:25]}... (수 분 소요될 수 있습니다)"
+                        )
+                        whisper_result = whisper_transcribe(v["videoId"], openai_api_key_input)
+                        if whisper_result and not whisper_result.startswith("[Whisper 오류]"):
+                            raw = f"[🎙️ Whisper 변환]\n{whisper_result}"
+                        else:
+                            err_msg = whisper_result or "[Whisper 오류] 알 수 없는 오류"
+                            _whisper_errors.append(f"• {v['title'][:35]} [Whisper]: {err_msg}")
+                            st.warning(f"🎙️ Whisper 변환 실패: {v['title'][:30]}\n→ {err_msg}")
+                            raw = f"자막 없음 (Whisper 실패: {err_msg[:60]})"
+
+                    v["transcript"] = raw
 
                     v["keywords"] = extract_keywords(
                         v["transcript"] + " " + v["description"] + " " + " ".join(v["tags"])
