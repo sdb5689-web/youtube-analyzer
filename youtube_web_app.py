@@ -201,7 +201,7 @@ def is_valid_transcript(tr: str) -> bool:
     if not tr or len(tr) < 20:
         return False
     BAD = ("자막 없음", "youtube-transcript-api 미설치",
-           "[Whisper 오류]", "미설치", "다운로드 실패")
+           "[Whisper 오류]", "[Gemini 오류", "미설치", "다운로드 실패")
     return not any(tr.startswith(b) or b in tr[:40] for b in BAD)
 
 def summarize_text(text, max_chars=300):
@@ -1519,16 +1519,15 @@ def main():
                             f"- {v['title'][:25]}..."
                         )
                         gemini_result = gemini_analyze_video(v["videoId"], gemini_api_key_input)
-                        if gemini_result and not gemini_result.startswith("[Gemini 오류]"):
+                        if gemini_result and not gemini_result.startswith("[Gemini 오류"):
                             raw = gemini_result
                             _no_caption = False
                         else:
                             err_msg = gemini_result or "[Gemini 오류] 알 수 없는 오류"
                             _whisper_errors.append(f"• {v['title'][:35]} [Gemini 실패]: {err_msg[:120]}")
-                            # Whisper 폴백 모드가 아니면 오류를 transcript에 저장 + 화면 표시
-                            if not use_whisper:
-                                raw = f"자막 없음 (Gemini 실패)"
-                                st.warning(f"🤖 Gemini 실패: {v['title'][:30]}\n→ {err_msg[:120]}")
+                            # 항상 raw를 "자막 없음"으로 설정 (오류 텍스트가 transcript에 저장되지 않도록)
+                            raw = "자막 없음 (Gemini 실패)"
+                            st.warning(f"🤖 Gemini 실패: {v['title'][:30]}\n→ {err_msg[:120]}")
 
                     # ③ 자막 없을 때(Gemini도 실패 or 미사용) Whisper 시도
                     if _no_caption and use_whisper and openai_api_key_input:
@@ -1641,9 +1640,13 @@ streamlit run youtube_web_app.py
         if _gemini_errs:
             with st.expander(f"🤖 Gemini 분석 실패 {len(_gemini_errs)}개 (클릭하여 원인 확인)", expanded=True):
                 _first = _gemini_errs[0]
-                if "미설치" in _first or "pip install" in _first:
-                    st.error("📦 **google-generativeai 미설치**\n터미널에서 실행 후 앱 재시작:")
-                    st.code("pip install google-generativeai", language="bash")
+                if "미설치" in _first or "pip install" in _first or "ImportError" in _first:
+                    st.error("📦 **Gemini SDK 미설치** — 아래 명령어를 터미널에서 실행 후 앱 재시작:")
+                    st.code("pip install google-genai google-generativeai", language="bash")
+                elif "v1beta" in _first or "not found for API version" in _first or "oldSDK" in _first:
+                    st.error("⚙️ **Gemini 구 SDK 호환 오류** — 새 SDK 설치가 필요합니다:")
+                    st.code("pip install google-genai", language="bash")
+                    st.info("설치 후 앱을 재시작하면 자동으로 새 SDK를 사용합니다.")
                 elif "API 키" in _first or "인증" in _first:
                     st.error("🔑 **GEMINI_API_KEY 인증 실패**\nsecrets.toml의 GEMINI_API_KEY를 확인하세요.")
                 elif "할당량" in _first or "quota" in _first.lower():
