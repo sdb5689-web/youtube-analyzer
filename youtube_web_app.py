@@ -513,17 +513,14 @@ def whisper_transcribe(video_id: str, openai_api_key: str) -> str:
 # ================================================================
 def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
     """
-    Gemini API로 YouTube URL을 직접 분석여 대본+요약+키워드 추출
+    Gemini API로 YouTube 영상 분석
     - 자막 없는 영상도 분석 가능
     - Streamlit Cloud에서도 정상 작동 (URL만 전달)
     - 최대 1~2시간 영상 지원
+    - 새 google-genai SDK 우선 사용, 실패 시 구 SDK 폴백
     """
     if not gemini_api_key:
         return "[Gemini 오류] API 키가 없습니다."
-    try:
-        import google.generativeai as genai
-    except ImportError:
-        return "[Gemini 오류] google-generativeai 미설치 → 터미널에서: pip install google-generativeai"
 
     video_url = f"https://www.youtube.com/watch?v={video_id}"
     prompt = """이 YouTube 영상의 내용을 상세히 분석해주세요.
@@ -539,53 +536,92 @@ def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
 [대본]
 (영상의 실제 대화 내용을 가능한 한 자세히 한국어로 작성)
 """
-    # 시도할 모델 목록 (최신 → 구버전 순)
     _models = [
         "gemini-2.0-flash",
         "gemini-2.0-flash-lite",
-        "gemini-1.5-flash-latest",
         "gemini-1.5-flash",
         "gemini-1.5-pro",
     ]
     last_err = ""
+
+    # ── 방법 1: 새 SDK (google-genai) ──────────────────────────────────
+    try:
+        from google import genai as _genai_new
+        from google.genai import types as _gtypes
+
+        client = _genai_new.Client(api_key=gemini_api_key)
+        for _model_name in _models:
+            try:
+                response = client.models.generate_content(
+                    model=_model_name,
+                    contents=[
+                        _gtypes.Part.from_uri(
+                            file_uri=video_url,
+                            mime_type="video/mp4"
+                        ),
+                        prompt
+                    ]
+                )
+                result_text = response.text.strip() if response.text else ""
+                if not result_text:
+                    last_err = f"[Gemini 오류] {_model_name}: 응답 비어있음 (비공개/지역제한 영상일 수 있음)"
+                    continue
+                return f"[\U0001f916 Gemini 분석 ({_model_name})]\n{result_text}"
+            except Exception as e:
+                err = str(e)
+                last_err = f"[Gemini 오류-newSDK] {_model_name}: {err[:120]}"
+                if any(k in err.lower() for k in ["not found", "404", "not support", "unknown model"]):
+                    continue
+                if "API_KEY_INVALID" in err or "invalid" in err.lower():
+                    return f"[Gemini 오류] API 키 인증 실패. GEMINI_API_KEY 확인 필요\n상세: {err[:80]}"
+                if "quota" in err.lower() or "429" in err:
+                    return f"[Gemini 오류] API 할당량 초과. 잠시 후 재시도\n상세: {err[:80]}"
+                continue
+        # 새 SDK로 모든 모델 실패 → 구 SDK 폴백
+    except ImportError:
+        last_err = "[Gemini] google-genai 미설치 → 구 SDK 시도"
+
+    # ── 방법 2: 구 SDK (google-generativeai) 폴백 ──────────────────────
+    try:
+        import google.generativeai as _genai_old
+    except ImportError:
+        return (
+            "[Gemini 오류] 두 SDK 모두 미설치.\n"
+            "터미널에서 실행하세요:\n"
+            "pip install google-genai google-generativeai"
+        )
+
     for _model_name in _models:
         try:
-            genai.configure(api_key=gemini_api_key)
-            model = genai.GenerativeModel(_model_name)
-
-            # 방법 1: genai.protos 사용
+            _genai_old.configure(api_key=gemini_api_key)
+            model = _genai_old.GenerativeModel(_model_name)
             try:
                 response = model.generate_content([
                     prompt,
-                    genai.protos.Part(
-                        file_data=genai.protos.FileData(
+                    _genai_old.protos.Part(
+                        file_data=_genai_old.protos.FileData(
                             mime_type="video/mp4",
                             file_uri=video_url
                         )
                     )
                 ])
             except Exception:
-                # 방법 2: 딕셔너리 방식 폴백
                 response = model.generate_content([
                     {"role": "user", "parts": [
                         {"text": prompt},
                         {"file_data": {"file_uri": video_url, "mime_type": "video/mp4"}}
                     ]}
                 ])
-
             result_text = response.text.strip() if response.text else ""
             if not result_text:
-                last_err = f"[Gemini 오류] {_model_name}: 응답 비어있음 (비공개/지역제한 영상일 수 있음)"
+                last_err = f"[Gemini 오류] {_model_name}: 응답 비어있음"
                 continue
             return f"[\U0001f916 Gemini 분석 ({_model_name})]\n{result_text}"
-
         except Exception as e:
             err = str(e)
-            last_err = f"[Gemini 오류] {_model_name}: {err[:100]}"
-            # 모델 없음(404) 오류면 다음 모델 시도
-            if "not found" in err.lower() or "404" in err or "not support" in err.lower():
+            last_err = f"[Gemini 오류-oldSDK] {_model_name}: {err[:100]}"
+            if any(k in err.lower() for k in ["not found", "404", "not support"]):
                 continue
-            # 그 외 오류(인증, 할당량 등)는 즉시 반환
             if "API_KEY_INVALID" in err or "invalid" in err.lower():
                 return f"[Gemini 오류] API 키 인증 실패. GEMINI_API_KEY 확인 필요\n상세: {err[:80]}"
             if "quota" in err.lower() or "429" in err:

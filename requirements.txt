@@ -8,3 +8,4 @@ pandas
 yt-dlp
 openai
 google-generativeai
+google-genai
