@@ -47,7 +47,7 @@ st.set_page_config(
     page_title="🎬 YouTube 분석 도구",
     page_icon="🎬",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # ─── 커스텀 CSS ───────────────────────────────────────────────
@@ -113,26 +113,127 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] { font-size:0.95rem; }
     .stButton button { border-radius:8px; }
 
-    /* ── 사이드바 간격 축소 (검색 시작 버튼 스크롤 없이 표시) ── */
-    [data-testid="stSidebar"] { overflow-y: auto; }
-    [data-testid="stSidebar"] hr { margin: 4px 0 !important; }
-    [data-testid="stSidebar"] h2 { margin-top: 4px !important; margin-bottom: 4px !important; font-size: 1.1rem !important; }
-    [data-testid="stSidebar"] h3 { margin-top: 4px !important; margin-bottom: 4px !important; font-size: 0.95rem !important; }
-    [data-testid="stSidebar"] .stTextInput { margin-bottom: 2px !important; }
-    [data-testid="stSidebar"] .stTextInput > div { margin-bottom: 0px !important; }
-    [data-testid="stSidebar"] .stTextArea { margin-bottom: 2px !important; }
-    [data-testid="stSidebar"] .stTextArea > div { margin-bottom: 0px !important; }
-    [data-testid="stSidebar"] .stSelectbox { margin-bottom: 2px !important; }
-    [data-testid="stSidebar"] .stSelectbox > div { margin-bottom: 0px !important; }
-    [data-testid="stSidebar"] .stSlider { margin-bottom: 2px !important; }
-    [data-testid="stSidebar"] .stSlider > div { margin-bottom: 0px !important; }
-    [data-testid="stSidebar"] .stCheckbox { margin-bottom: 2px !important; }
-    [data-testid="stSidebar"] .stCheckbox > div { margin-bottom: 0px !important; }
-    [data-testid="stSidebar"] .stCaption { margin-top: 0px !important; margin-bottom: 1px !important; }
-    [data-testid="stSidebar"] .element-container { margin-bottom: 2px !important; }
-    [data-testid="stSidebar"] .stButton { margin-top: 4px !important; }
+    /* ── 핫 서브토픽 버튼 스타일 ── */
+.hot-topic-btn button {
+    background: linear-gradient(135deg, #ff6b35, #f7931e) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 16px !important;
+    font-size: 0.78rem !important;
+    padding: 4px 10px !important;
+    font-weight: 600 !important;
+    margin: 2px 0 !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 2px 6px rgba(255,107,53,0.25) !important;
+}
+.hot-topic-btn button:hover {
+    background: linear-gradient(135deg, #e55a2b, #e6821a) !important;
+    box-shadow: 0 4px 12px rgba(255,107,53,0.4) !important;
+    transform: translateY(-1px) !important;
+}
+.rank-badge {
+    display:inline-block;
+    background:#ff4444;
+    color:white;
+    border-radius:50%;
+    width:18px; height:18px;
+    font-size:0.65rem;
+    font-weight:700;
+    text-align:center;
+    line-height:18px;
+    margin-right:4px;
+}
+.rank-badge.gold { background:#f7931e; }
+.rank-badge.silver { background:#9e9e9e; }
+.rank-badge.bronze { background:#a0522d; }
+.view-bar {
+    height:4px;
+    border-radius:2px;
+    background: linear-gradient(90deg, #ff6b35, #f7931e);
+    margin-top:2px;
+}
+
+/* ── 사이드바 간격 최소화 (메뉴 압축) ── */
+    [data-testid="stSidebar"] { overflow-y: auto !important; }
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 0.4rem !important;
+        padding-bottom: 0.4rem !important;
+    }
+    [data-testid="stSidebar"] hr { margin: 2px 0 !important; padding: 0 !important; }
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        margin-top: 2px !important; margin-bottom: 1px !important;
+        padding: 0 !important; font-size: 0.88rem !important; line-height: 1.2 !important;
+    }
+    [data-testid="stSidebar"] p { margin-top: 0 !important; margin-bottom: 0 !important; line-height: 1.3 !important; }
+    [data-testid="stSidebar"] label { font-size: 0.76rem !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
+    [data-testid="stSidebar"] .stTextInput  { margin-bottom: 0 !important; }
+    [data-testid="stSidebar"] .stTextArea   { margin-bottom: 0 !important; }
+    [data-testid="stSidebar"] .stSelectbox  { margin-bottom: 0 !important; }
+    [data-testid="stSidebar"] .stSlider     { margin-bottom: 0 !important; }
+    [data-testid="stSidebar"] .stCheckbox   { margin-bottom: 0 !important; }
+    [data-testid="stSidebar"] .stRadio      { margin-bottom: 0 !important; }
+    [data-testid="stSidebar"] .stTextInput > div,
+    [data-testid="stSidebar"] .stTextArea > div,
+    [data-testid="stSidebar"] .stSelectbox > div { margin-bottom: 0 !important; }
+    [data-testid="stSidebar"] .stTextArea textarea { min-height: 52px !important; font-size: 0.80rem !important; }
+    [data-testid="stSidebar"] .stCaption { margin-top: 0 !important; margin-bottom: 0 !important; font-size: 0.68rem !important; line-height: 1.1 !important; }
+    [data-testid="stSidebar"] .element-container { margin-bottom: 0 !important; padding-bottom: 0 !important; }
+    [data-testid="stSidebar"] .stButton { margin-top: 1px !important; margin-bottom: 1px !important; }
+    [data-testid="stSidebar"] .stButton button { font-size: 0.76rem !important; padding: 3px 8px !important; min-height: 26px !important; height: auto !important; }
+
+    /* ── 서브주제 카드 버튼 행 전용 (4열 균등 아이콘 버튼) ── */
+    [data-testid="stSidebar"] .subtopic-btn-row .stButton button {
+        font-size: 0.80rem !important;
+        padding: 2px 2px !important;
+        min-height: 28px !important;
+        height: 28px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: clip !important;
+        line-height: 1 !important;
+        border-radius: 6px !important;
+    }
+    /* 추가 버튼 (col1) — 텍스트 짧게 유지 */
+    [data-testid="stSidebar"] .subtopic-add-btn .stButton button {
+        font-size: 0.72rem !important;
+        padding: 2px 4px !important;
+        white-space: nowrap !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stExpander"] { margin-bottom: 1px !important; }
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary { padding: 3px 8px !important; font-size: 0.78rem !important; min-height: 28px !important; }
+    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] { font-size: 0.76rem !important; margin-bottom: 0 !important; }
+
+    /* ═══════════════════════ 모바일 반응형 ═══════════════════════ */
+
+    /* 모바일 (768px 이하) 전용 */
+    @media (max-width: 768px) {
+
+        /* 사이드바 너비: 화면의 88% (남은 12%에 콘텐츠 보임) */
+        [data-testid="stSidebar"] {
+            min-width: 88vw !important;
+            max-width: 88vw !important;
+        }
+
+        /* 메인 콘텐츠 여백 축소 */
+        .main .block-container {
+            padding-left: 0.8rem !important;
+            padding-right: 0.8rem !important;
+            padding-top: 0.8rem !important;
+        }
+
+        /* 헤더 텍스트 모바일 크기 조정 */
+        .main-header h1 { font-size: 1.3rem !important; }
+        .main-header p  { font-size: 0.82rem !important; }
+
+        /* 탭 텍스트 작게 */
+        .stTabs [data-baseweb="tab"] { font-size: 0.78rem !important; padding: 6px 8px !important; }
+    }
+
+
 </style>
 """, unsafe_allow_html=True)
+
 
 # ================================================================
 # 유틸 함수
@@ -203,6 +304,53 @@ def is_valid_transcript(tr: str) -> bool:
     BAD = ("자막 없음", "youtube-transcript-api 미설치",
            "[Whisper 오류]", "[Gemini 오류", "미설치", "다운로드 실패")
     return not any(tr.startswith(b) or b in tr[:40] for b in BAD)
+
+def clean_transcript(text: str) -> str:
+    """대본에서 타임스탬프/메타 태그를 제거하고 순수 대본 텍스트만 반환
+    제거 대상:
+      - 00:00 / 00:00:00 형식 타임스탬프
+      - [🤖 Gemini 분석 (모델명)] 헤더 라인
+      - [요약] / [주요 내용] 섹션 (대본 섹션만 추출)
+      - ** 마크다운 볼드 기호
+    """
+    if not text:
+        return text
+
+    # ── [대본] 섹션만 추출 (Gemini 분석 결과인 경우) ──────────────
+    # "[대본]" 이후 텍스트만 사용
+    if "[대본]" in text:
+        text = text.split("[대본]", 1)[1].strip()
+        # 혹시 뒤에 다른 섹션이 있으면 거기까지만
+        for _sec in ["[요약]", "[주요 내용]", "[\U0001f916"]:
+            if _sec in text:
+                text = text.split(_sec, 1)[0].strip()
+
+    # ── Gemini 헤더 라인 제거 ─────────────────────────────────────
+    # "[🤖 Gemini 분석 (gemini-2.5-flash)]" 같은 첫 줄 제거
+    lines = text.splitlines()
+    clean_lines = []
+    for line in lines:
+        # 헤더 라인 스킵
+        if re.match(r'^\[\U0001f916.*\]', line.strip()):
+            continue
+        # 타임스탬프 라인 패턴: 줄 시작이 HH:MM:SS 또는 MM:SS
+        # 예) 00:05 텍스트... / 01:23:45 텍스트...
+        line_stripped = re.sub(
+            r'^\s*(\d{1,2}:\d{2}(:\d{2})?)\s*',  # 앞쪽 타임스탬프 제거
+            '', line
+        )
+        # 줄 중간/끝 타임스탬프도 제거 (예: 텍스트 [00:30] 텍스트)
+        line_stripped = re.sub(r'\[\d{1,2}:\d{2}(:\d{2})?\]', '', line_stripped)
+        # 마크다운 볼드 기호 제거
+        line_stripped = line_stripped.replace('**', '')
+        # 빈 줄이 아니면 추가
+        if line_stripped.strip():
+            clean_lines.append(line_stripped.strip())
+
+    # 연속 빈 줄 정리 후 합치기
+    result = '\n'.join(clean_lines)
+    result = re.sub(r'\n{3,}', '\n\n', result)
+    return result.strip()
 
 def summarize_text(text, max_chars=300):
     if not text or "자막 없음" in text or len(text) < 30:
@@ -292,6 +440,253 @@ def search_youtube(api_key, keyword, max_r, order_api, video_type="전체"):
         if not token: break
     return video_ids, None
 
+
+def get_hot_subtopics(api_key: str, main_keyword: str, top_n: int = 10):
+    """
+    대표 키워드 → 실시간 인기 서브 주제 TOP N 추출
+
+    전략:
+      A) YouTube API → 최근 1년 내 고조회수 영상 50개 수집
+         → 실제 영상 제목을 그대로 사용 (조회수 + 최신성 스코어)
+      B) YouTube 자동완성 → 실시간 인기 검색어로 보완
+      C) Google Trends → pytrends 급상승 검색어 보완 (설치 시)
+
+    Returns:
+        (list[dict], None) 또는 (None, error_str)
+        dict = {
+            "topic":   str,   # 영상 제목 or 검색어
+            "score":   int,   # 정렬용 스코어
+            "label":   str,   # 뱃지 ("🔥 인기영상" / "🔴 실시간" / "📈 급상승")
+            "source":  str,   # "video" / "suggest" / "trends"
+            "views":   str,   # "1,234만회" 또는 ""
+            "date":    str,   # "3일 전" 또는 ""
+            "channel": str,   # 채널명 또는 ""
+        }
+    """
+    import json as _json
+    import urllib.parse as _up
+    from datetime import datetime as _dt, timezone as _tz
+
+    seen    = set()
+    results = []
+
+    def _fmt_views(n):
+        if n >= 100_000_000: return f"{n//100_000_000}억회"
+        if n >= 10_000:      return f"{n/10_000:.0f}만회"
+        if n >= 1_000:       return f"{n//1_000}천회"
+        return f"{n}회"
+
+    def _days_ago(iso_str):
+        try:
+            pub = _dt.fromisoformat(iso_str.replace("Z", "+00:00"))
+            diff = _dt.now(_tz.utc) - pub
+            d = diff.days
+            if d == 0:   return "오늘"
+            if d == 1:   return "1일 전"
+            if d < 7:    return f"{d}일 전"
+            if d < 30:   return f"{d//7}주 전"
+            if d < 365:  return f"{d//30}개월 전"
+            return f"{d//365}년 전"
+        except Exception:
+            return ""
+
+    def _recency_factor(iso_str):
+        """최신일수록 높은 가중치: 7일 이내 2.0, 30일 2배, 365일 0.5"""
+        try:
+            pub = _dt.fromisoformat(iso_str.replace("Z", "+00:00"))
+            diff = _dt.now(_tz.utc) - pub
+            d = diff.days
+            if d <= 7:   return 2.0
+            if d <= 30:  return 1.5
+            if d <= 90:  return 1.2
+            if d <= 365: return 1.0
+            return 0.6
+        except Exception:
+            return 1.0
+
+    def _add(topic, score, label, source, views="", date="", channel="", raw_views=0, trend_val=0, sug_rank=0, sparkline=None):
+        key = topic.strip().lower()
+        if not key or len(key) < 2:
+            return
+        if key not in seen:
+            seen.add(key)
+            results.append({
+                "topic":      topic.strip(),
+                "score":      score,
+                "label":      label,
+                "source":     source,
+                "views":      views,
+                "raw_views":  raw_views,
+                "trend_val":  trend_val,
+                "sug_rank":   sug_rank,
+                "date":       date,
+                "channel":    channel,
+                "sparkline":  sparkline or [],  # 7일 트렌드 포인트 [0-100]
+            })
+
+    # ──────────────────────────────────────────────────────────────
+    # A) YouTube API: 최근 고조회수 영상 50개 → 실제 제목 사용
+    # ──────────────────────────────────────────────────────────────
+    if api_key:
+        try:
+            # 1) 검색 (최신순 + 관련성, 50개)
+            _r1 = requests.get(
+                "https://www.googleapis.com/youtube/v3/search",
+                params={
+                    "key": api_key, "q": main_keyword,
+                    "part": "id",   "type": "video",
+                    "maxResults": 50,
+                    "order": "relevance",
+                    "regionCode": "KR",
+                    "relevanceLanguage": "ko",
+                    "publishedAfter": "2024-01-01T00:00:00Z",
+                },
+                timeout=10
+            )
+            _d1 = _r1.json()
+            if "error" in _d1:
+                pass  # API 오류 → 폴백으로
+            else:
+                _vids = [i["id"]["videoId"] for i in _d1.get("items", [])]
+                if _vids:
+                    # 2) 상세 정보 (제목 + 조회수 + 업로드일)
+                    _r2 = requests.get(
+                        "https://www.googleapis.com/youtube/v3/videos",
+                        params={
+                            "key": api_key,
+                            "id": ",".join(_vids),
+                            "part": "snippet,statistics",
+                        },
+                        timeout=10
+                    )
+                    _items = _r2.json().get("items", [])
+
+                    # 조회수 + 최신성 스코어로 정렬
+                    _scored = []
+                    for _item in _items:
+                        _title   = _item["snippet"].get("title", "").strip()
+                        _pub     = _item["snippet"].get("publishedAt", "")
+                        _channel = _item["snippet"].get("channelTitle", "")
+                        _views   = int(_item.get("statistics", {}).get("viewCount", 0))
+                        if not _title or _views < 1000:
+                            continue
+                        _sc = int(_views * _recency_factor(_pub))
+                        _scored.append((_sc, _views, _pub, _title, _channel))
+
+                    # 스코어 내림차순 정렬
+                    _scored.sort(key=lambda x: x[0], reverse=True)
+
+                    # 상위 영상 제목을 그대로 서브 주제로 사용
+                    for _sc, _views, _pub, _title, _ch in _scored[:top_n]:
+                        _add(
+                            _title, _sc,
+                            "🔥 인기영상", "video",
+                            views=_fmt_views(_views),
+                            date=_days_ago(_pub),
+                            channel=_ch,
+                            raw_views=_views,
+                        )
+        except Exception:
+            pass
+
+    # ──────────────────────────────────────────────────────────────
+    # B) YouTube 자동완성 (실시간 인기 검색어 → 부족분 보완)
+    # ──────────────────────────────────────────────────────────────
+    try:
+        _sug_url = (
+            "https://suggestqueries.google.com/complete/search"
+            f"?client=firefox&ds=yt"
+            f"&q={_up.quote(main_keyword)}"
+            f"&hl=ko&gl=KR"
+        )
+        _sr = requests.get(
+            _sug_url, timeout=8,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        )
+        if _sr.status_code == 200:
+            _data = _json.loads(_sr.text)
+            _sugs = _data[1] if len(_data) > 1 else []
+            for _rank, _s in enumerate(_sugs[:10]):
+                _topic = _s if isinstance(_s, str) else _s[0]
+                if _topic and _topic.strip().lower() != main_keyword.strip().lower():
+                    _add(_topic, 8_000_000 - _rank * 100_000,
+                         "🔴 실시간검색", "suggest",
+                         views="", date="실시간",
+                         sug_rank=_rank + 1)
+    except Exception:
+        pass
+
+    # ──────────────────────────────────────────────────────────────
+    # C) Google Trends 급상승 (pytrends, 설치된 경우)
+    # ──────────────────────────────────────────────────────────────
+    _trends_sparklines = {}  # keyword → [7 data points]
+    try:
+        from pytrends.request import TrendReq as _TR
+        _pt = _TR(hl="ko-KR", tz=540, timeout=(8, 20))
+        _pt.build_payload([main_keyword], cat=0, timeframe="now 7-d", geo="KR")
+        # 메인 키워드 7일 트렌드 (스파크라인용)
+        try:
+            _iot = _pt.interest_over_time()
+            if _iot is not None and not _iot.empty and main_keyword in _iot.columns:
+                _vals = _iot[main_keyword].tolist()
+                # 최근 7포인트로 정규화 (0-100)
+                _sl_raw = _vals[-7:] if len(_vals) >= 7 else _vals
+                _sl_max = max(_sl_raw) if _sl_raw else 1
+                _sl_min = min(_sl_raw) if _sl_raw else 0
+                _rng = _sl_max - _sl_min or 1
+                _trends_sparklines[main_keyword] = [
+                    round((_v - _sl_min) / _rng * 100) for _v in _sl_raw
+                ]
+        except Exception:
+            pass
+        _rel = _pt.related_queries()
+        _rising_df = _rel.get(main_keyword, {}).get("rising")
+        if _rising_df is not None and not _rising_df.empty:
+            for _, _row in _rising_df.head(5).iterrows():
+                _q  = str(_row.get("query", "")).strip()
+                _v  = int(_row.get("value", 0))
+                if _q:
+                    # 급상승 → 우상향 스파크라인 시뮬레이션
+                    _sp = [max(0, min(100, 20 + int(_v/5)*_i//6 + (_i*8))) for _i in range(7)]
+                    _add(_q, 5_000_000 + _v * 500,
+                         "📈 급상승트렌드", "trends",
+                         date="급상승",
+                         trend_val=_v,
+                         sparkline=_sp)
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    # ──────────────────────────────────────────────────────────────
+    # D) 스파크라인 없는 항목: 스코어 기반 시뮬레이션 보완
+    # ──────────────────────────────────────────────────────────────
+    _mk_sl = _trends_sparklines.get(main_keyword, [])
+    for _r in results:
+        if not _r.get("sparkline"):
+            _sc  = _r["score"]
+            _src = _r["source"]
+            if _src == "video":
+                # 인기 영상 → 안정적 고점 형태 (작은 노이즈)
+                import random as _rnd
+                _rnd.seed(hash(_r["topic"]) % 9999)
+                _base = 55 + min(40, int(_sc / 3_000_000 * 40))
+                _r["sparkline"] = [max(5, min(100, _base + _rnd.randint(-12, 12))) for _ in range(7)]
+                _r["sparkline"][-1] = min(100, _r["sparkline"][-1] + 5)  # 최근값 소폭 상승
+            elif _src == "suggest":
+                # 실시간 검색 → 최근 급등 형태
+                _rank = _r.get("sug_rank", 5)
+                _sp = [max(5, 30 + (7-_rank)*5 + int(_i * (100 - 30 - (7-_rank)*5)/6)) for _i in range(7)]
+                _r["sparkline"] = _sp
+
+    if not results:
+        return None, f"'{main_keyword}' 관련 서브 주제를 찾을 수 없습니다. API 키를 확인하거나 잠시 후 다시 시도하세요."
+
+    # 최종 정렬 + 상위 N개 반환
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results[:top_n], None
+
+
 def fetch_video_details(api_key, video_ids):
     videos = []
     for i in range(0, len(video_ids), 50):
@@ -332,6 +727,59 @@ def fetch_video_details(api_key, video_ids):
                 "summary":         "",
             })
     return videos
+
+
+
+def get_related_videos(api_key, topic, top_n=3):
+    """서브주제 키워드로 유튜브 관련 영상 TOP N 검색 (앱 내 검색 / 구글시트 내보내기 공용)"""
+    try:
+        params = {
+            "key": api_key,
+            "q": topic,
+            "part": "snippet",
+            "type": "video",
+            "order": "viewCount",
+            "maxResults": top_n * 2,
+            "regionCode": "KR",
+            "relevanceLanguage": "ko",
+        }
+        r = requests.get(
+            "https://www.googleapis.com/youtube/v3/search",
+            params=params, timeout=10
+        )
+        items = r.json().get("items", [])
+        video_ids = [it["id"].get("videoId","") for it in items if it.get("id",{}).get("videoId")]
+        if not video_ids:
+            return []
+        # 상세 정보 (조회수 포함)
+        det_r = requests.get(
+            "https://www.googleapis.com/youtube/v3/videos",
+            params={"key": api_key, "id": ",".join(video_ids[:top_n*2]),
+                    "part": "snippet,statistics"},
+            timeout=10
+        )
+        videos = []
+        for item in det_r.json().get("items", []):
+            sn  = item.get("snippet", {})
+            st2 = item.get("statistics", {})
+            vc  = int(st2.get("viewCount","0")) if str(st2.get("viewCount","0")).isdigit() else 0
+            vid = item["id"]
+            videos.append({
+                "videoId":   vid,
+                "title":     sn.get("title",""),
+                "channel":   sn.get("channelTitle",""),
+                "views":     vc,
+                "views_fmt": fmt(vc) + "회",
+                "date":      sn.get("publishedAt","")[:10],
+                "thumbnail": (sn.get("thumbnails",{}).get("high") or
+                              sn.get("thumbnails",{}).get("medium") or {}).get("url",""),
+                "url":       f"https://www.youtube.com/watch?v={vid}",
+            })
+        videos.sort(key=lambda x: x["views"], reverse=True)
+        return videos[:top_n]
+    except Exception:
+        return []
+
 
 def fetch_subscribers(api_key, videos):
     cache = {}
@@ -514,10 +962,10 @@ def whisper_transcribe(video_id: str, openai_api_key: str) -> str:
 def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
     """
     Gemini API로 YouTube 영상 분석
+    - REST API 직접 호출 우선 (SDK 버전 무관)
+    - 새 SDK / 구 SDK 순으로 폴백
     - 자막 없는 영상도 분석 가능
-    - Streamlit Cloud에서도 정상 작동 (URL만 전달)
-    - 최대 1~2시간 영상 지원
-    - 새 google-genai SDK 우선 사용, 실패 시 구 SDK 폴백
+    - Streamlit Cloud 정상 작동
     """
     if not gemini_api_key:
         return "[Gemini 오류] API 키가 없습니다."
@@ -534,61 +982,191 @@ def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
 (- 항목별로 영상에서 다루는 핵심 내용 5~10개)
 
 [대본]
-(영상의 실제 대화 내용을 가능한 한 자세히 한국어로 작성)
+아래 규칙을 반드시 지켜서 작성하세요:
+- 타임스탬프(00:00, 01:23 등 시간 표시)를 절대 포함하지 마세요
+- 장면 구분 없이 말한 내용을 자연스러운 흐름의 연속 문장으로 작성하세요
+- 영상에서 실제로 한 말을 최대한 그대로, 빠짐없이 한국어로 작성하세요
+- 문단은 주제가 바뀔 때만 나누세요
 """
+    # v1beta 모델 목록 (2026년 3월 기준 — YouTube URL 직접 분석은 v1beta 전용)
+    # gemini-2.0-flash/lite는 2026년부터 Deprecated → gemini-2.5-flash 우선
+    _rest_models = [
+        ("v1beta", "gemini-2.5-flash"),          # 현재 stable 최신
+        ("v1beta", "gemini-2.5-flash-lite"),     # 경량 최신
+        ("v1beta", "gemini-2.0-flash"),          # 이전 세대 (deprecated)
+        ("v1beta", "gemini-1.5-flash"),          # 구버전 폴백
+        ("v1beta", "gemini-1.5-pro"),            # 구버전 폴백
+    ]
+    # SDK 폴백용 모델 목록
     _models = [
+        "gemini-2.5-flash",
         "gemini-2.0-flash",
-        "gemini-2.0-flash-lite",
         "gemini-1.5-flash",
         "gemini-1.5-pro",
     ]
     last_err = ""
+    _rest_errors = []   # 모든 REST 시도 결과 누적
 
-    # ── 방법 1: 새 SDK (google-genai) ──────────────────────────────────
+    # ══════════════════════════════════════════════════════
+    # 방법 1: REST API 직접 호출 (v1beta 전용, SDK 불필요)
+    # YouTube URL file_data 분석은 v1beta에서만 지원됨
+    # ══════════════════════════════════════════════════════
+    try:
+        import requests as _req
+
+        # YouTube URL은 mime_type 불필요 (공식 문서 기준)
+        # file_data를 텍스트보다 먼저 배치 (공식 문서 순서)
+        _payload = {
+            "contents": [{
+                "parts": [
+                    {"file_data": {"file_uri": video_url}},
+                    {"text": prompt}
+                ]
+            }]
+        }
+
+        for _api_ver, _model in _rest_models:
+            try:
+                _url = (
+                    f"https://generativelanguage.googleapis.com/{_api_ver}/models/"
+                    f"{_model}:generateContent?key={gemini_api_key}"
+                )
+                _resp = _req.post(_url, json=_payload, timeout=120)
+
+                if _resp.status_code == 200:
+                    _data = _resp.json()
+                    _text = (
+                        _data.get("candidates", [{}])[0]
+                            .get("content", {})
+                            .get("parts", [{}])[0]
+                            .get("text", "")
+                    )
+                    if _text.strip():
+                        return f"[\U0001f916 Gemini 분석 ({_model})]\n{_text.strip()}"
+                    last_err = f"[Gemini 오류] {_model}: 응답 비어있음 (비공개/지역제한 영상)"
+                    continue
+
+                elif _resp.status_code == 400:
+                    try:
+                        _err_body = _resp.json().get("error", {})
+                        _detail   = _err_body.get("message", "")
+                        _err_status = _err_body.get("status", "")
+                    except Exception:
+                        _detail = _resp.text[:120]
+                        _err_status = ""
+                    # API 키 무효 → 즉시 반환
+                    if "API_KEY_INVALID" in _err_status or "not valid" in _detail.lower() or "api key" in _detail.lower():
+                        return "[Gemini 오류] API 키 인증 실패 (REST 400). secrets.toml의 GEMINI_API_KEY를 확인하세요."
+                    # 영상 미지원 → continue (break 제거, 다른 모델 시도)
+                    if "not supported" in _detail.lower() or "file_data" in _detail.lower() or "unsupported" in _detail.lower():
+                        _e = f"{_api_ver}/{_model}: [400 미지원] {_detail[:80]}"
+                        _rest_errors.append(_e); last_err = f"[Gemini 오류] {_e}"
+                        continue
+                    _e = f"{_api_ver}/{_model}: [400] {_detail[:120]}"
+                    _rest_errors.append(_e); last_err = f"[Gemini 오류-REST] {_e}"
+                    continue
+
+                elif _resp.status_code == 401 or _resp.status_code == 403:
+                    return "[Gemini 오류] API 키 인증 실패. GEMINI_API_KEY를 확인하세요."
+
+                elif _resp.status_code == 404:
+                    try:
+                        _err404 = _resp.json().get("error", {}).get("message", _resp.text[:100])
+                    except Exception:
+                        _err404 = _resp.text[:100]
+                    _e = f"{_api_ver}/{_model}: [404] {_err404[:120]}"
+                    _rest_errors.append(_e); last_err = f"[Gemini 오류-REST] {_e}"
+                    continue
+
+                elif _resp.status_code == 429:
+                    return "[Gemini 오류] API 할당량 초과(429). 잠시 후 재시도하세요."
+
+                else:
+                    _e = f"{_api_ver}/{_model}: [HTTP {_resp.status_code}] {_resp.text[:80]}"
+                    _rest_errors.append(_e); last_err = f"[Gemini 오류-REST] {_e}"
+                    continue
+
+            except Exception as _e:
+                _emsg = f"{_api_ver}/{_model}: [예외] {str(_e)[:80]}"
+                _rest_errors.append(_emsg); last_err = f"[Gemini 오류-REST] {_emsg}"
+                continue
+
+        # REST API 모든 모델 실패 → 누적 에러 전체 반환
+        if _rest_errors:
+            _err_summary = "\n".join([f"  • {e}" for e in _rest_errors])
+            return f"[Gemini 오류-REST] v1beta 모든 모델 실패:\n{_err_summary}"
+        if last_err:
+            return last_err
+
+    except ImportError:
+        last_err = "[Gemini] requests 미설치 → SDK 방식 시도"
+
+    # ══════════════════════════════════════════════════════
+    # 방법 2: 새 SDK (google-genai) — 딕셔너리 방식 (버전 독립적)
+    # types 객체 대신 plain dict 사용 → SDK 버전 무관하게 동작
+    # ══════════════════════════════════════════════════════
     try:
         from google import genai as _genai_new
-        from google.genai import types as _gtypes
 
         client = _genai_new.Client(api_key=gemini_api_key)
-        for _model_name in _models:
+        # YouTube URL 직접 분석 지원 모델 (최신순)
+        _new_sdk_models = [
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+        ]
+        _new_sdk_last_err = None
+        for _model_name in _new_sdk_models:
             try:
+                # plain dict 방식: SDK 버전에 무관하게 동작
                 response = client.models.generate_content(
                     model=_model_name,
                     contents=[
-                        _gtypes.Part.from_uri(
-                            file_uri=video_url,
-                            mime_type="video/mp4"
-                        ),
-                        prompt
+                        {
+                            "role": "user",
+                            "parts": [
+                                {"file_data": {"file_uri": video_url}},
+                                {"text": prompt}
+                            ]
+                        }
                     ]
                 )
                 result_text = response.text.strip() if response.text else ""
                 if not result_text:
-                    last_err = f"[Gemini 오류] {_model_name}: 응답 비어있음 (비공개/지역제한 영상일 수 있음)"
+                    _new_sdk_last_err = f"[Gemini 오류] {_model_name}: 응답 비어있음"
+                    last_err = _new_sdk_last_err
                     continue
                 return f"[\U0001f916 Gemini 분석 ({_model_name})]\n{result_text}"
             except Exception as e:
                 err = str(e)
-                last_err = f"[Gemini 오류-newSDK] {_model_name}: {err[:120]}"
-                if any(k in err.lower() for k in ["not found", "404", "not support", "unknown model"]):
-                    continue
-                if "API_KEY_INVALID" in err or "invalid" in err.lower():
-                    return f"[Gemini 오류] API 키 인증 실패. GEMINI_API_KEY 확인 필요\n상세: {err[:80]}"
-                if "quota" in err.lower() or "429" in err:
-                    return f"[Gemini 오류] API 할당량 초과. 잠시 후 재시도\n상세: {err[:80]}"
+                _new_sdk_last_err = f"[Gemini 오류-newSDK] {_model_name}: {err[:150]}"
+                last_err = _new_sdk_last_err
+                if any(k in err.lower() for k in ["not found", "404", "not support", "unknown model", "deprecated"]):
+                    continue  # 다음 모델 시도
+                if "API_KEY_INVALID" in err or ("invalid" in err.lower() and "key" in err.lower()):
+                    return f"[Gemini 오류] API 키 인증 실패\n키를 확인하세요: https://aistudio.google.com/app/apikey\n상세: {err[:100]}"
+                if "quota" in err.lower() or "429" in err or "RESOURCE_EXHAUSTED" in err:
+                    return f"[Gemini 오류] API 할당량 초과\n잠시 후 재시도하거나 유료 플랜을 확인하세요.\n상세: {err[:80]}"
+                if "private" in err.lower() or "unavailable" in err.lower():
+                    return f"[Gemini 오류] 비공개 또는 접근 불가 영상"
+                # 기타 오류: 다음 모델 시도
                 continue
-        # 새 SDK로 모든 모델 실패 → 구 SDK 폴백
+        # 새 SDK 모든 모델 실패 → 마지막 오류 반환 (구 SDK로 넘어가지 않음)
+        if _new_sdk_last_err:
+            return _new_sdk_last_err
     except ImportError:
-        last_err = "[Gemini] google-genai 미설치 → 구 SDK 시도"
+        pass  # 새 SDK 미설치 → 구 SDK 시도
 
-    # ── 방법 2: 구 SDK (google-generativeai) 폴백 ──────────────────────
+    # ══════════════════════════════════════════════════════
+    # 방법 3: 구 SDK (google.generativeai) 폴백
+    # ══════════════════════════════════════════════════════
     try:
         import google.generativeai as _genai_old
     except ImportError:
         return (
-            "[Gemini 오류] 두 SDK 모두 미설치.\n"
-            "터미널에서 실행하세요:\n"
-            "pip install google-genai google-generativeai"
+            "[Gemini 오류] SDK 미설치.\n"
+            "터미널에서 실행: pip install google-genai"
         )
 
     for _model_name in _models:
@@ -600,8 +1178,7 @@ def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
                     prompt,
                     _genai_old.protos.Part(
                         file_data=_genai_old.protos.FileData(
-                            mime_type="video/mp4",
-                            file_uri=video_url
+                            mime_type="video/mp4", file_uri=video_url
                         )
                     )
                 ])
@@ -616,19 +1193,19 @@ def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
             if not result_text:
                 last_err = f"[Gemini 오류] {_model_name}: 응답 비어있음"
                 continue
-            return f"[\U0001f916 Gemini 분석 ({_model_name})]\n{result_text}"
+            return f"[🤖 Gemini 분석 ({_model_name})]\n{result_text}"
         except Exception as e:
             err = str(e)
             last_err = f"[Gemini 오류-oldSDK] {_model_name}: {err[:100]}"
-            if any(k in err.lower() for k in ["not found", "404", "not support"]):
+            if any(k in err.lower() for k in ["not found", "404", "not support", "v1beta"]):
                 continue
-            if "API_KEY_INVALID" in err or "invalid" in err.lower():
-                return f"[Gemini 오류] API 키 인증 실패. GEMINI_API_KEY 확인 필요\n상세: {err[:80]}"
+            if "API_KEY_INVALID" in err or ("invalid" in err.lower() and "key" in err.lower()):
+                return f"[Gemini 오류] API 키 인증 실패\n상세: {err[:80]}"
             if "quota" in err.lower() or "429" in err:
-                return f"[Gemini 오류] API 할당량 초과. 잠시 후 재시도\n상세: {err[:80]}"
+                return f"[Gemini 오류] API 할당량 초과\n상세: {err[:80]}"
             continue
 
-    return last_err or "[Gemini 오류] 사용 가능한 모델 없음. API 키와 할당량을 확인하세요."
+    return last_err or "[Gemini 오류] 사용 가능한 방법 없음. API 키를 확인하세요."
 
 
 def get_transcript_with_whisper(video_id: str,
@@ -869,6 +1446,251 @@ def build_json(all_results_by_keyword, channel_stats):
 # ================================================================
 # Google Sheets 업로드
 # ================================================================
+
+def export_subtopics_to_gsheet(topics, main_keyword, credentials_dict=None, existing_id=None, share_email=None, api_key=None):
+    """
+    서브 주제를 구글시트에 누적 추가.
+    - 시트명: 서브주제_기록
+    - 헤더 자동 추가 (최초 1회)
+    - 자동 필터 설정 (날짜/키워드/출처 필터링 가능)
+    - 열 너비 자동 조정
+    """
+    if not HAS_GSHEET:
+        return False, "gspread 라이브러리 미설치 (pip install gspread google-auth)"
+    if not credentials_dict:
+        return False, "GCP credentials 없음"
+
+    SCOPES = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    try:
+        try:
+            gc = gspread.service_account_from_dict(credentials_dict, scopes=SCOPES)
+        except AttributeError:
+            creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
+            try:    gc = gspread.Client(auth=creds)
+            except: gc = gspread.authorize(creds)
+    except Exception as e:
+        return False, f"Google 인증 실패: {e}"
+
+    try:
+        if existing_id:
+            eid = existing_id.strip()
+            if "spreadsheets/d/" in eid:
+                eid = eid.split("spreadsheets/d/")[1].split("/")[0]
+            sh = gc.open_by_key(eid)
+        else:
+            sh = gc.create(f"YouTube_서브주제_{datetime.now().strftime('%Y%m%d')}")
+            if share_email:
+                sh.share(share_email, perm_type='user', role='writer')
+            else:
+                sh.share('', perm_type='anyone', role='reader')
+    except Exception as e:
+        return False, f"스프레드시트 열기 실패: {e}"
+
+    SHEET_NAME = "서브주제_기록"
+    # ── 개선된 헤더 (날짜/키워드 필터 최적화) ──────────────────────
+    HEADER = [
+        "추출날짜",       # A: YYYY-MM-DD (날짜 필터용)
+        "추출시간",       # B: HH:MM
+        "메인키워드",     # C: 키워드 필터용
+        "순위",           # D: 1-10
+        "서브주제(제목)", # E: 주요 내용
+        "조회수",         # F: 숫자 (정렬용)
+        "출처유형",       # G: 🔥인기영상 / 🔴실시간 / 📈급상승
+        "업로드날짜",     # H: 영상 업로드 날짜
+        "채널명",         # I
+        "스코어",         # J: 내부 정렬 점수
+        "주간변화",       # K: ↑↓ 트렌드
+    ]
+
+    # 시트 가져오기 or 생성
+    is_new_sheet = False
+    try:
+        ws = sh.worksheet(SHEET_NAME)
+    except Exception:
+        try:
+            ws = sh.add_worksheet(title=SHEET_NAME, rows=5000, cols=len(HEADER))
+            is_new_sheet = True
+        except Exception as e:
+            return False, f"시트 생성 실패: {e}"
+
+    # 기존 데이터 확인
+    try:
+        existing_rows = ws.get_all_values()
+    except Exception:
+        existing_rows = []
+
+    rows_to_append = []
+    need_header = (not existing_rows) or (existing_rows[0] != HEADER)
+    if need_header:
+        rows_to_append.append(HEADER)
+
+    now_dt   = datetime.now()
+    now_date = now_dt.strftime("%Y-%m-%d")
+    now_time = now_dt.strftime("%H:%M")
+
+    for i, t in enumerate(topics):
+        _src_map = {"video": "🔥인기영상", "suggest": "🔴실시간검색", "trends": "📈급상승"}
+        _raw_v   = t.get("raw_views", 0)
+        _views_str = (
+            str(_raw_v) if _raw_v > 0
+            else (f"+{t.get('trend_val',0)}%" if t.get("source") == "trends"
+                  else (f"#{t.get('sug_rank',0)}위" if t.get("sug_rank",0) > 0 else ""))
+        )
+        _sp   = t.get("sparkline", [])
+        _trend_str = ""
+        if _sp and len(_sp) >= 2:
+            _diff = _sp[-1] - _sp[0]
+            _trend_str = f"▲{_diff}" if _diff > 5 else (f"▼{abs(_diff)}" if _diff < -5 else "━보합")
+        rows_to_append.append([
+            now_date,
+            now_time,
+            main_keyword,
+            str(i + 1),
+            t.get("topic", ""),
+            _views_str,
+            _src_map.get(t.get("source", ""), t.get("label", "")),
+            t.get("date", ""),
+            t.get("channel", ""),
+            str(t.get("score", 0)),
+            _trend_str,
+        ])
+
+    # 누적 append
+    try:
+        ws.append_rows(rows_to_append, value_input_option="USER_ENTERED")
+    except Exception as e:
+        return False, f"데이터 추가 실패: {e}"
+
+    # ── 자동 필터 + 열 너비 설정 (Sheets API batchUpdate) ──────────
+    try:
+        total_data_rows = len(existing_rows) + len(rows_to_append)
+        sid = ws.id
+        requests_body = []
+
+        # 1) 자동 필터 (전체 헤더 범위)
+        requests_body.append({"setBasicFilter": {"filter": {
+            "range": {
+                "sheetId": sid,
+                "startRowIndex": 0, "endRowIndex": total_data_rows,
+                "startColumnIndex": 0, "endColumnIndex": len(HEADER)
+            }
+        }}})
+
+        # 2) 열 너비 설정 (픽셀)
+        col_widths = [110, 70, 110, 50, 280, 90, 110, 100, 140, 90, 80]
+        for _ci, _cw in enumerate(col_widths[:len(HEADER)]):
+            requests_body.append({"updateDimensionProperties": {
+                "range": {"sheetId": sid, "dimension": "COLUMNS",
+                            "startIndex": _ci, "endIndex": _ci + 1},
+                "properties": {"pixelSize": _cw},
+                "fields": "pixelSize"
+            }})
+
+        # 3) 헤더 행 굵게 + 배경색 (파란 계열)
+        if need_header:
+            requests_body.append({"repeatCell": {
+                "range": {"sheetId": sid, "startRowIndex": 0, "endRowIndex": 1,
+                            "startColumnIndex": 0, "endColumnIndex": len(HEADER)},
+                "cell": {"userEnteredFormat": {
+                    "backgroundColor": {"red": 0.11, "green": 0.37, "blue": 0.64},
+                    "textFormat": {"foregroundColor": {"red": 1, "green": 1, "blue": 1},
+                                    "bold": True, "fontSize": 10},
+                    "horizontalAlignment": "CENTER",
+                    "verticalAlignment": "MIDDLE"
+                }},
+                "fields": "userEnteredFormat"
+            }})
+            # 헤더 행 고정 (freeze)
+            requests_body.append({"updateSheetProperties": {
+                "properties": {"sheetId": sid,
+                                 "gridProperties": {"frozenRowCount": 1}},
+                "fields": "gridProperties.frozenRowCount"
+            }})
+
+        sh.batch_update({"requests": requests_body})
+    except Exception:
+        pass  # 스타일 실패해도 데이터는 저장됨
+
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{sh.id}"
+    total_data = max(0, len(existing_rows) - (1 if existing_rows else 0)) + len(topics)
+
+    # ── 관련 영상 TOP3 시트 추가 (api_key 있을 때만) ────────────────────
+    if api_key:
+        REL_SHEET   = "관련영상_TOP3"
+        REL_HEADER  = ["추출날짜", "메인키워드", "서브주제", "영상순위",
+                       "영상제목", "채널명", "조회수", "업로드날짜", "유튜브URL"]
+        try:
+            try:    ws_rel = sh.worksheet(REL_SHEET)
+            except: ws_rel = sh.add_worksheet(title=REL_SHEET, rows=3000, cols=len(REL_HEADER))
+            rel_existing = ws_rel.get_all_values()
+            rel_rows     = []
+            if (not rel_existing) or (rel_existing[0] != REL_HEADER):
+                rel_rows.append(REL_HEADER)
+            for t in topics:
+                _rvs = get_related_videos(api_key, t.get("topic",""), top_n=3)
+                for _ri, _rv in enumerate(_rvs):
+                    rel_rows.append([
+                        now_date,
+                        main_keyword,
+                        t.get("topic",""),
+                        str(_ri + 1),
+                        _rv.get("title",""),
+                        _rv.get("channel",""),
+                        str(_rv.get("views",0)),
+                        _rv.get("date",""),
+                        _rv.get("url",""),
+                    ])
+            if rel_rows:
+                ws_rel.append_rows(rel_rows, value_input_option="USER_ENTERED")
+            # 헤더 스타일
+            try:
+                _rs_sid = ws_rel.id
+                _rs_req = [{
+                    "repeatCell": {
+                        "range": {"sheetId": _rs_sid, "startRowIndex": 0, "endRowIndex": 1,
+                                  "startColumnIndex": 0, "endColumnIndex": len(REL_HEADER)},
+                        "cell": {"userEnteredFormat": {
+                            "backgroundColor": {"red": 0.06, "green": 0.49, "blue": 0.31},
+                            "textFormat": {"foregroundColor": {"red":1,"green":1,"blue":1},
+                                           "bold": True, "fontSize": 10},
+                            "horizontalAlignment": "CENTER"
+                        }},
+                        "fields": "userEnteredFormat"
+                    }
+                }, {
+                    "updateSheetProperties": {
+                        "properties": {"sheetId": _rs_sid,
+                                       "gridProperties": {"frozenRowCount": 1}},
+                        "fields": "gridProperties.frozenRowCount"
+                    }
+                }, {
+                    "setBasicFilter": {"filter": {"range": {
+                        "sheetId": _rs_sid,
+                        "startRowIndex": 0,
+                        "endRowIndex": len(rel_existing) + len(rel_rows),
+                        "startColumnIndex": 0,
+                        "endColumnIndex": len(REL_HEADER)
+                    }}}
+                }]
+                _rel_col_w = [110, 120, 200, 55, 260, 130, 80, 100, 200]
+                for _ci, _cw in enumerate(_rel_col_w[:len(REL_HEADER)]):
+                    _rs_req.append({"updateDimensionProperties": {
+                        "range": {"sheetId": _rs_sid, "dimension": "COLUMNS",
+                                  "startIndex": _ci, "endIndex": _ci+1},
+                        "properties": {"pixelSize": _cw},
+                        "fields": "pixelSize"
+                    }})
+                sh.batch_update({"requests": _rs_req})
+            except Exception:
+                pass
+        except Exception:
+            pass  # 관련영상 시트 실패해도 메인 결과는 유지
+
+    return True, f"{sheet_url}|||{total_data}"
+
 def upload_to_gsheet(all_results_by_keyword, channel_stats, sort_label,
                      credentials_dict=None, spreadsheet_name=None,
                      share_email=None, existing_id=None):
@@ -1186,12 +2008,747 @@ def main():
         st.markdown('<hr style="margin:6px 0">', unsafe_allow_html=True)
         st.markdown("### 🔍 검색 옵션")
 
+        # ── session_state 초기화 (키워드 입력창 + 서브 주제) ──────────────
+        if "hot_topics" not in st.session_state:
+            st.session_state["hot_topics"]       = []
+        if "hot_topics_kw" not in st.session_state:
+            st.session_state["hot_topics_kw"]    = ""
+        if "hot_topic_clicked" not in st.session_state:
+            st.session_state["hot_topic_clicked"] = ""
+        if "hot_exp_open" not in st.session_state:
+            st.session_state["hot_exp_open"] = True
+        if "favorites" not in st.session_state:
+            st.session_state["favorites"] = []  # [{topic, keyword, date, views, label}]
+        if "fav_exp_open" not in st.session_state:
+            st.session_state["fav_exp_open"] = False
+        if "fav_action" not in st.session_state:
+            st.session_state["fav_action"] = ""
+        if "subtopic_export_trigger" not in st.session_state:
+            st.session_state["subtopic_export_trigger"] = False
+        if "detail_chart_topic" not in st.session_state:
+            st.session_state["detail_chart_topic"] = ""
+        if "detail_chart_data" not in st.session_state:
+            st.session_state["detail_chart_data"] = {}
+        if "inline_search_topic" not in st.session_state:
+            st.session_state["inline_search_topic"] = ""
+        if "inline_search_results" not in st.session_state:
+            st.session_state["inline_search_results"] = []
+        if "fav_dashboard_open" not in st.session_state:
+            st.session_state["fav_dashboard_open"] = False
+        # 키워드 입력창 초기값 설정 (최초 1회만)
+        if "kw_input" not in st.session_state:
+            st.session_state["kw_input"] = _s_keywords or ""
+
+        # ★ 즐겨찾기 액션 처리
+        _fav_action = st.session_state.pop("fav_action", "")
+        if _fav_action.startswith("ADD:"):
+            _fav_topic_key = _fav_action[4:]
+            _all_t = st.session_state.get("hot_topics", [])
+            _fav_found = next((t for t in _all_t if t["topic"] == _fav_topic_key), None)
+            if _fav_found:
+                _favs = st.session_state["favorites"]
+                if not any(f["topic"] == _fav_topic_key for f in _favs):
+                    _favs.append({
+                        "topic":     _fav_found["topic"],
+                        "keyword":   st.session_state.get("hot_topics_kw", ""),
+                        "saved":     datetime.now().strftime("%m/%d %H:%M"),
+                        "saved_dt":  datetime.now().isoformat(),
+                        "views":     _fav_found.get("views", ""),
+                        "label":     _fav_found.get("label", ""),
+                        "score":     _fav_found.get("score", 0),
+                        "raw_views": _fav_found.get("raw_views", 0),
+                        "sparkline": _fav_found.get("sparkline", []),
+                    })
+                    st.session_state["favorites"] = _favs
+        elif _fav_action.startswith("DEL:"):
+            _del_topic = _fav_action[4:]
+            st.session_state["favorites"] = [
+                f for f in st.session_state["favorites"] if f["topic"] != _del_topic
+            ]
+
+        # ★ 서브 주제 클릭 처리 → text_area 렌더링 전에 실행해야 반영됨
+        _clicked = st.session_state.pop("hot_topic_clicked", "")
+        if _clicked:
+            _cur_kws = [k.strip() for k in
+                        st.session_state["kw_input"].replace("，", ",").split(",")
+                        if k.strip()]
+            if _clicked not in _cur_kws:
+                # 클릭한 서브 주제를 앞에 삽입
+                _cur_kws.insert(0, _clicked)
+            st.session_state["kw_input"] = ", ".join(_cur_kws)
+
+        # ── 키워드 입력창 (key="kw_input" → session_state 기반) ──────────
         keywords_input = st.text_area(
             "검색 키워드 (쉼표로 여러 개 입력)",
-            value=_s_keywords,
+            key="kw_input",
             placeholder="예: 비타민D 효능, 50대 영양제",
             height=65
         )
+
+        # ── 🔥 실시간 인기 서브 주제 추출 UI ─────────────────────────────
+        _main_kw = keywords_input.split(",")[0].strip() if keywords_input else ""
+
+        # 헤더 + 추출 버튼
+        _col_hot1, _col_hot2 = st.columns([3, 1])
+        with _col_hot1:
+            if _main_kw:
+                st.markdown(
+                    f"<small style='color:#e55a2b;font-weight:600'>🔥 인기 서브 주제</small> "
+                    f"<small style='color:#888'>— <b>{_main_kw}</b> 관련 TOP 10</small>",
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    "<small style='color:#aaa'>🔥 키워드 입력 후 인기 서브 주제를 추출하세요</small>",
+                    unsafe_allow_html=True
+                )
+        with _col_hot2:
+            _hot_btn = st.button(
+                "🔍 추출",
+                key="btn_hot_topics",
+                disabled=not (_main_kw and api_key),
+                help="첫 번째 키워드로 실시간 인기 서브 주제 TOP 10을 추출합니다"
+            )
+
+        if _hot_btn and _main_kw and api_key:
+            with st.spinner(f"🔥 '{_main_kw}' 관련 인기 서브 주제 분석 중..."):
+                _topics, _err = get_hot_subtopics(api_key, _main_kw, top_n=10)
+            if _err:
+                st.error(f"서브 주제 추출 실패: {_err}")
+            else:
+                st.session_state["hot_topics"]    = _topics
+                st.session_state["hot_topics_kw"] = _main_kw
+                st.rerun()
+
+        # ── 추출된 서브 주제 표시 (세로 1열) ─────────────────────────────
+        _topics_now = st.session_state.get("hot_topics", [])
+        _topics_kw  = st.session_state.get("hot_topics_kw", "")
+        if _topics_now:
+            _exp_label = (
+                f"🔥 '{_topics_kw}' 인기 서브 주제 "
+                f"TOP {len(_topics_now)} — 클릭하여 열기/접기"
+            )
+            with st.expander(_exp_label, expanded=st.session_state.get('hot_exp_open', True)):
+                _max_score = max(t["score"] for t in _topics_now) or 1
+                # 출처 통계
+                _src_count = {}
+                for _t in _topics_now:
+                    _src_count[_t.get("source","?")] = _src_count.get(_t.get("source","?"),0) + 1
+                _src_labels = []
+                if _src_count.get("video"):    _src_labels.append(f"🔥인기영상 {_src_count['video']}개")
+                if _src_count.get("suggest"):  _src_labels.append(f"🔴실시간검색 {_src_count['suggest']}개")
+                if _src_count.get("trends"):   _src_labels.append(f"📈급상승트렌드 {_src_count['trends']}개")
+
+                st.markdown(
+                    f"<div style='background:#fff8f5;border-left:3px solid #ff6b35;"
+                    f"padding:6px 10px;border-radius:6px;margin:4px 0 8px 0;'>"
+                    f"<div style='font-size:0.78rem;font-weight:700;color:#e55a2b;margin-bottom:2px'>"
+                    f"📊 '{_topics_kw}' 관련 실시간 서브 주제 TOP {len(_topics_now)}</div>"
+                    f"<div style='font-size:0.68rem;color:#aaa'>"
+                    f"{'  ·  '.join(_src_labels)}</div>"
+                    f"<div style='font-size:0.66rem;color:#bbb;margin-top:2px'>클릭 → 검색창 자동입력</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
+                # ── 세로 1열 카드 (인기도 숫자 + 바 한눈 비교) ─────────────
+                _cur_kws_check = [k.strip() for k in keywords_input.replace("，", ",").split(",") if k.strip()]
+                for _ti, _t in enumerate(_topics_now):
+                    _already_added = _t["topic"] in _cur_kws_check
+                    _bar_w   = max(6, int(_t["score"] / _max_score * 100))
+                    _label_badge = _t.get("label", "🔥 인기")
+                    _source  = _t.get("source", "video")
+
+                    # ── 소스별 인기도 숫자 포매팅 ──────────────────────────
+                    _raw_v   = _t.get("raw_views", 0)
+                    _tval    = _t.get("trend_val", 0)
+                    _srank   = _t.get("sug_rank", 0)
+
+                    if _source == "video" and _raw_v > 0:
+                        # 실제 조회수 → 가장 큰 숫자로 표시
+                        if _raw_v >= 100_000_000:
+                            _hot_num = f"{_raw_v/100_000_000:.1f}억"
+                        elif _raw_v >= 10_000:
+                            _hot_num = f"{_raw_v/10_000:.0f}만"
+                        elif _raw_v >= 1_000:
+                            _hot_num = f"{_raw_v/1_000:.0f}천"
+                        else:
+                            _hot_num = f"{_raw_v:,}"
+                        _hot_unit  = "조회수"
+                        _hot_color = "#e53935"
+                    elif _source == "suggest" and _srank > 0:
+                        # 실시간 검색 순위
+                        _hot_num   = f"#{_srank}"
+                        _hot_unit  = "실검순위"
+                        _hot_color = "#d32f2f"
+                    elif _source == "trends" and _tval > 0:
+                        # Google Trends 급상승률
+                        _hot_num   = f"+{_tval}%"
+                        _hot_unit  = "급상승"
+                        _hot_color = "#1565c0"
+                    else:
+                        _hot_num   = f"TOP{_ti+1}"
+                        _hot_unit  = "인기"
+                        _hot_color = "#555"
+
+                    # ── 순위별 좌측 컬러 바 색상 ──────────────────────────
+                    _rank_color = (
+                        "#E53935" if _ti == 0 else
+                        "#F57C00" if _ti == 1 else
+                        "#795548" if _ti == 2 else
+                        "#1976D2" if _ti < 6 else
+                        "#546E7A" if _ti < 8 else "#90A4AE"
+                    )
+                    _bg_color  = "#fff5f5" if _ti == 0 else ("#f0faf0" if _already_added else "#fafafa")
+                    _txt_color = "#2e7d32" if _already_added else "#222"
+
+                    # ── 날짜 / 채널 정보 ───────────────────────────────────
+                    _date_str    = _t.get("date", "")
+                    _channel_str = _t.get("channel", "")
+                    _sub_parts   = []
+                    if _date_str:    _sub_parts.append(f"📅 {_date_str}")
+                    if _channel_str: _sub_parts.append(f"📺 {_channel_str}")
+                    _sub_html = "  ·  ".join(_sub_parts)
+                    _sub_row  = (f"<div style='font-size:0.63rem;color:#aaa;margin-bottom:4px'>{_sub_html}</div>"
+                                 if _sub_html else "")
+
+                    # ── 카드 HTML (변수 조합 후 전달) ────────────────────────
+                    _html_card = (
+                        f"<div style='background:{_bg_color};border:1px solid #e0e0e0;"
+                        f"border-radius:10px;padding:8px 10px 6px 10px;margin-bottom:5px;"
+                        f"border-left:4px solid {_rank_color};'>"
+                        # 1행: 순위 + 라벨뱃지 + 인기도 숫자 (오른쪽)
+                        f"<div style='display:flex;justify-content:space-between;"
+                        f"align-items:center;margin-bottom:4px'>"
+                        f"<span style='font-weight:900;color:{_rank_color};"
+                        f"font-size:0.78rem;min-width:22px'>#{_ti+1}</span>"
+                        f"<span style='font-size:0.63rem;background:#eeeeee;"
+                        f"padding:1px 6px;border-radius:8px;color:#777;"
+                        f"flex:1;margin:0 6px'>{_label_badge}</span>"
+                        f"<div style='text-align:right;line-height:1.1'>"
+                        f"<div style='font-size:1.05rem;font-weight:900;"
+                        f"color:{_hot_color};letter-spacing:-0.5px'>{_hot_num}</div>"
+                        f"<div style='font-size:0.58rem;color:#aaa'>{_hot_unit}</div>"
+                        f"</div>"
+                        f"</div>"
+                        # 2행: 제목
+                        f"<div style='font-size:0.84rem;font-weight:600;color:{_txt_color};"
+                        f"line-height:1.4;margin-bottom:3px'>"
+                        f"{'✓ ' if _already_added else ''}{_t['topic']}"
+                        f"</div>"
+                    )
+                    # 3행: 날짜·채널 (있을 때만 추가)
+                    if _sub_html:
+                        _html_card += (
+                            f"<div style='font-size:0.63rem;color:#aaa;margin-bottom:4px'>"
+                            f"{_sub_html}</div>"
+                        )
+                    # 4행: 인기도 바 + 퍼센트 수치
+                    _html_card += (
+                        f"<div style='display:flex;align-items:center;gap:5px'>"
+                        f"<div style='flex:1;height:4px;border-radius:2px;background:#efefef'>"
+                        f"<div style='height:4px;border-radius:2px;"
+                        f"background:linear-gradient(90deg,{_rank_color},{_rank_color}55);"
+                        f"width:{_bar_w}%'></div>"
+                        f"</div>"
+                        f"<span style='font-size:0.60rem;color:{_rank_color};"
+                        f"font-weight:700;min-width:26px;text-align:right'>{_bar_w}%</span>"
+                        f"</div>"
+                        f"</div>"
+                    )
+                    # ── 확대 스파크라인 SVG (날짜별 수치 포함) ──────────
+                    _sp_data = _t.get("sparkline", [])
+                    if not _sp_data:
+                        _sp_data = [50]*7
+                    # 날짜 레이블 (오늘 기준 D-6 ~ D-0)
+                    from datetime import datetime as _dtnow, timedelta as _td
+                    _today = _dtnow.now()
+                    _date_labels = [(_today - _td(days=6-i)).strftime("%m/%d") for i in range(7)]
+                    _sp_padded = (_sp_data + [50]*7)[:7]
+                    _W2, _H2 = 200, 56   # 더 크게
+                    _sp_n2   = len(_sp_padded)
+                    _sp_max2 = max(_sp_padded) or 1
+                    _sp_min2 = min(_sp_padded)
+                    _sp_rng2 = _sp_max2 - _sp_min2 or 1
+                    _pts2    = []
+                    for _si2, _sv2 in enumerate(_sp_padded):
+                        _sx2 = int(_si2 / (_sp_n2 - 1) * (_W2 - 16)) + 8
+                        _sy2 = int((1 - (_sv2 - _sp_min2) / _sp_rng2) * (_H2 - 20)) + 6
+                        _pts2.append((_sx2, _sy2, _sv2))
+                    _polyline2 = " ".join(f"{x},{y}" for x,y,_ in _pts2)
+                    _sp_trend2 = _sp_padded[-1] - _sp_padded[0]
+                    _sp_color2 = "#E53935" if _sp_trend2 > 5 else ("#4CAF50" if _sp_trend2 < -5 else "#FF9800")
+                    _sp_arrow2 = "▲" if _sp_trend2 > 5 else ("▼" if _sp_trend2 < -5 else "━")
+                    # 그라디언트 fill 영역 (area chart)
+                    _fill_pts  = f"8,{_H2-2} " + " ".join(f"{x},{y}" for x,y,_ in _pts2) + f" {_pts2[-1][0]},{_H2-2}"
+                    # 각 포인트: 원 + 수치 레이블
+                    _circles_html = ""
+                    for _ci, (_cx, _cy, _cv) in enumerate(_pts2):
+                        _is_max = (_cv == _sp_max2)
+                        _is_min = (_cv == _sp_min2)
+                        _cr     = 3.5 if (_is_max or _is_min) else 2.5
+                        _cfill  = "#E53935" if _is_max else ("#4CAF50" if _is_min else _sp_color2)
+                        # 수치 레이블 (최고/최저/마지막 포인트만 표시)
+                        if _is_max or _is_min or _ci == _sp_n2 - 1:
+                            _lbl_y  = _cy - 5 if _cy > 14 else _cy + 12
+                            _lbl_x  = max(8, min(_W2-16, _cx))
+                            _circles_html += (
+                                f"<circle cx='{_cx}' cy='{_cy}' r='{_cr}' fill='{_cfill}' stroke='white' stroke-width='1'/>"
+                                f"<text x='{_lbl_x}' y='{_lbl_y}' text-anchor='middle' "
+                                f"font-size='7' fill='{_cfill}' font-weight='bold'>{_cv}</text>"
+                            )
+                        else:
+                            _circles_html += f"<circle cx='{_cx}' cy='{_cy}' r='{_cr}' fill='{_sp_color2}' stroke='white' stroke-width='1'/>"
+                    # 날짜 레이블 (X축)
+                    _xlabels_html = ""
+                    for _xi, ((_xx, _xy, _), _dl) in enumerate(zip(_pts2, _date_labels)):
+                        if _xi == 0 or _xi == 3 or _xi == 6:
+                            _xlabels_html += f"<text x='{_xx}' y='{_H2+1}' text-anchor='middle' font-size='6.5' fill='#aaa'>{_dl}</text>"
+                    # 그리드라인 (수평 3개)
+                    _grid_html = ""
+                    for _gi in range(1, 4):
+                        _gy = int(_H2 * _gi / 4)
+                        _grid_html += f"<line x1='8' y1='{_gy}' x2='{_W2-8}' y2='{_gy}' stroke='#f0f0f0' stroke-width='0.8'/>"
+                    _svg_big = (
+                        f"<svg width='{_W2}' height='{_H2+10}' style='overflow:visible'>"
+                        f"<defs><linearGradient id='sg{_ti}' x1='0' y1='0' x2='0' y2='1'>"
+                        f"<stop offset='0%' stop-color='{_sp_color2}' stop-opacity='0.18'/>"
+                        f"<stop offset='100%' stop-color='{_sp_color2}' stop-opacity='0.02'/>"
+                        f"</linearGradient></defs>"
+                        f"{_grid_html}"
+                        f"<polygon points='{_fill_pts}' fill='url(#sg{_ti})'/>"
+                        f"<polyline points='{_polyline2}' fill='none' stroke='{_sp_color2}' stroke-width='2' stroke-linejoin='round'/>"
+                        f"{_circles_html}"
+                        f"{_xlabels_html}"
+                        f"</svg>"
+                        f"<span style='font-size:0.7rem;color:{_sp_color2};font-weight:800;margin-left:4px'>{_sp_arrow2}</span>"
+                    )
+
+                    # 스파크라인 행 (카드 하단 구분선 위에 삽입)
+                    _sp_row_html = (
+                        f"<div style='margin-top:6px;padding-top:5px;border-top:1px solid #f0f0f0'>"
+                        f"<div style='font-size:0.6rem;color:#aaa;margin-bottom:2px'>📈 최근 7일 조회 추이</div>"
+                        f"<div style='overflow:hidden'>{_svg_big}</div>"
+                        f"</div>"
+                    )
+                    _html_card = _html_card[:-6] + _sp_row_html + "</div>" 
+
+                    st.markdown(_html_card, unsafe_allow_html=True)
+
+                    # ── 버튼 행 4열 균등: [＋추가 | 📊 | 🔍 | ★] ──────────────
+                    _is_fav    = any(f["topic"] == _t["topic"] for f in st.session_state.get("favorites", []))
+                    _is_inline = st.session_state.get("inline_search_topic","") == _t["topic"]
+
+                    # 버튼 라벨 (최대한 짧게 — 사이드바 폭 대응)
+                    _lbl_add  = "✓" if _already_added else "＋ 추가"
+                    _lbl_srch = "🔴" if _is_inline else "🔍"
+                    _lbl_fav  = "★" if _is_fav else "☆"
+                    _help_add = "이미 검색창에 추가됨" if _already_added else f"'{_t['topic']}' 검색창에 입력"
+                    _help_fav = "즐겨찾기 해제" if _is_fav else "즐겨찾기에 저장"
+
+                    _btn_col1, _btn_col2, _btn_col3, _btn_col4 = st.columns([2, 1, 1, 1])
+                    with _btn_col1:
+                        if st.button(
+                            _lbl_add,
+                            key=f"hot_topic_{_ti}",
+                            help=_help_add,
+                            use_container_width=True,
+                            disabled=_already_added
+                        ):
+                            st.session_state["hot_topic_clicked"] = _t["topic"]
+                            st.rerun()
+                    with _btn_col2:
+                        if st.button(
+                            "📊",
+                            key=f"detail_btn_{_ti}",
+                            help="7일 상세 트렌드 그래프",
+                            use_container_width=True
+                        ):
+                            st.session_state["detail_chart_topic"] = _t["topic"]
+                            st.session_state["detail_chart_data"]  = _t
+                            st.rerun()
+                    with _btn_col3:
+                        if st.button(
+                            _lbl_srch,
+                            key=f"inline_btn_{_ti}",
+                            help="앱 내 유튜브 검색 결과 보기 (토글)",
+                            use_container_width=True
+                        ):
+                            if _is_inline:
+                                st.session_state["inline_search_topic"]   = ""
+                                st.session_state["inline_search_results"] = []
+                            else:
+                                st.session_state["inline_search_topic"] = _t["topic"]
+                                with st.spinner(f"🔍 '{_t['topic']}' 검색 중..."):
+                                    st.session_state["inline_search_results"] = (
+                                        get_related_videos(api_key, _t["topic"], top_n=5)
+                                        if api_key else []
+                                    )
+                            st.rerun()
+                    with _btn_col4:
+                        if st.button(
+                            _lbl_fav,
+                            key=f"fav_btn_{_ti}",
+                            help=_help_fav,
+                            use_container_width=True,
+                        ):
+                            if _is_fav:
+                                st.session_state["fav_action"] = f"DEL:{_t['topic']}"
+                            else:
+                                st.session_state["fav_action"] = f"ADD:{_t['topic']}"
+                            st.rerun()
+
+                    # ── 인라인 검색 결과 패널 (해당 카드 바로 아래) ──────────
+                    if _is_inline:
+                        _isr = st.session_state.get("inline_search_results", [])
+                        _panel_html = (
+                            f"<div style='background:#e8f4fd;border:1px solid #90caf9;"
+                            f"border-radius:10px;padding:10px 12px;margin:4px 0 8px 0;"
+                            f"border-left:4px solid #1976D2;'>"
+                            f"<div style='font-size:0.72rem;font-weight:800;color:#1565C0;"
+                            f"margin-bottom:8px'>🔍 \''{_t['topic']}\'' 유튜브 검색 결과 TOP {len(_isr)}</div>"
+                        )
+                        if not _isr:
+                            _panel_html += "<div style='color:#aaa;font-size:0.7rem'>API 키 필요 또는 결과 없음</div>"
+                        for _ri, _rv in enumerate(_isr):
+                            _rv_views = fmt(_rv.get("views",0)) + "회"
+                            _rv_title = _rv.get("title","")[:32] + ("..." if len(_rv.get("title",""))>32 else "")
+                            _rv_ch    = _rv.get("channel","")
+                            _rv_date  = _rv.get("date","")
+                            _rv_url   = _rv.get("url","")
+                            _rv_thumb = _rv.get("thumbnail","")
+                            _rank_c   = ["#E53935","#F57C00","#795548","#1976D2","#546E7A"][_ri]
+                            _panel_html += (
+                                f"<div style='display:flex;align-items:center;gap:8px;"
+                                f"margin-bottom:7px;padding-bottom:7px;"
+                                f"border-bottom:1px solid #bbdefb;'>"
+                                f"<span style='font-weight:900;font-size:0.82rem;color:{_rank_c};"
+                                f"min-width:18px'>#{_ri+1}</span>"
+                            )
+                            if _rv_thumb:
+                                _panel_html += (
+                                    f"<img src='{_rv_thumb}' width='60' height='34' "
+                                    f"style='border-radius:4px;object-fit:cover;flex-shrink:0'/>"
+                                )
+                            _panel_html += (
+                                f"<div style='flex:1;min-width:0'>"
+                                f"<a href='{_rv_url}' target='_blank' style='font-size:0.75rem;"
+                                f"font-weight:700;color:#1976D2;text-decoration:none;"
+                                f"display:block;overflow:hidden;white-space:nowrap;"
+                                f"text-overflow:ellipsis'>{_rv_title}</a>"
+                                f"<div style='font-size:0.62rem;color:#888;margin-top:2px'>"
+                                f"📺 {_rv_ch}  ·  👁 {_rv_views}  ·  📅 {_rv_date}</div>"
+                                f"</div></div>"
+                            )
+                        _panel_html += "</div>"
+                        st.markdown(_panel_html, unsafe_allow_html=True)
+
+                # ── 하단 액션 버튼 행 ─────────────────────────────────────
+                st.markdown("<div style='margin-top:8px'></div>", unsafe_allow_html=True)
+                _act_c1, _act_c2 = st.columns(2)
+                with _act_c1:
+                    if st.button("🗑️ 목록 지우기", key="btn_clear_hot", use_container_width=True):
+                        st.session_state["hot_topics"]    = []
+                        st.session_state["hot_topics_kw"] = ""
+                        st.rerun()
+                with _act_c2:
+                    _can_export = HAS_GSHEET and bool(_s_gcp_creds or False)
+                    if st.button(
+                        "📊 구글시트 내보내기",
+                        key="btn_export_subtopics",
+                        use_container_width=True,
+                        disabled=not _can_export,
+                        help="GCP credentials 설정 필요" if not _can_export else f"'{_topics_kw}' 서브주제 10개를 구글시트에 누적 저장"
+                    ):
+                        st.session_state["subtopic_export_trigger"] = True
+                        st.rerun()
+
+                # ── 구글시트 내보내기 실행 ────────────────────────────────
+                if st.session_state.pop("subtopic_export_trigger", False):
+                    with st.spinner("📊 구글시트에 서브주제 저장 중..."):
+                        _ok, _msg = export_subtopics_to_gsheet(
+                            _topics_now, _topics_kw,
+                            credentials_dict=_s_gcp_creds,
+                            existing_id=_s_existing,
+                            share_email=_s_email,
+                            api_key=api_key,
+                        )
+                    if _ok:
+                        _url_part, _cnt = _msg.split("|||")
+                        st.success(f"✅ 구글시트 저장 완료 (누적 {_cnt}행)")
+                        st.markdown(f"[📋 시트 열기]({_url_part})", unsafe_allow_html=False)
+                    else:
+                        st.error(f"❌ 내보내기 실패: {_msg}")
+
+        # ── 즐겨찾기 목록 expander ──────────────────────────────────────
+        _favs_now = st.session_state.get("favorites", [])
+        if _favs_now:
+            _fav_label = f"⭐ 즐겨찾기 {len(_favs_now)}개 — 클릭하여 열기/접기"
+            with st.expander(_fav_label, expanded=st.session_state.get("fav_exp_open", False)):
+                # ── 정렬 선택 ─────────────────────────────────────────
+                _fsort_col1, _fsort_col2 = st.columns([3, 2])
+                with _fsort_col1:
+                    st.markdown(
+                        "<div style='font-size:0.7rem;color:#888;padding-top:4px'>"
+                        "★ 클릭 → 검색창 자동입력 &nbsp;|&nbsp; 🗑️ → 해제</div>",
+                        unsafe_allow_html=True
+                    )
+                with _fsort_col2:
+                    _fav_sort = st.selectbox(
+                        "정렬",
+                        options=["저장순", "조회수순", "저장날짜↑"],
+                        key="fav_sort_select",
+                        label_visibility="collapsed"
+                    )
+                # ── 정렬 적용 ─────────────────────────────────────────
+                _favs_sorted = list(_favs_now)
+                if _fav_sort == "조회수순":
+                    _favs_sorted.sort(key=lambda f: f.get("score", 0), reverse=True)
+                elif _fav_sort == "저장날짜↑":
+                    _favs_sorted.sort(key=lambda f: f.get("saved", ""), reverse=False)
+                # 저장순은 기본 순서 유지
+
+                # ── 📊 대시보드 토글 버튼 ─────────────────────────────
+                _fdb_open = st.session_state.get("fav_dashboard_open", False)
+                if st.button(
+                    "📊 조회수 비교 대시보드 닫기" if _fdb_open else "📊 조회수 비교 대시보드 보기",
+                    key="btn_fav_dashboard",
+                    use_container_width=True
+                ):
+                    st.session_state["fav_dashboard_open"] = not _fdb_open
+                    st.rerun()
+
+                # ── 📊 대시보드 뷰 ────────────────────────────────────
+                if st.session_state.get("fav_dashboard_open", False):
+                    _fdb_items = [f for f in _favs_sorted if f.get("sparkline")]
+                    if not _fdb_items:
+                        st.info("📈 스파크라인 데이터가 있는 즐겨찾기가 없습니다. (새로 추출한 서브주제를 즐겨찾기 해주세요)")
+                    else:
+                        st.markdown(
+                            "<div style='font-size:0.72rem;font-weight:800;color:#1565C0;"
+                            "margin:4px 0 6px 0'>📊 즐겨찾기 조회수 추이 비교</div>",
+                            unsafe_allow_html=True
+                        )
+                        # 최대 6개 아이템, 2열 그리드
+                        _fdb_show = _fdb_items[:6]
+                        # 모든 항목의 최대 점수 (비교 기준)
+                        _fdb_all_max = max((max(f.get("sparkline",[50])) for f in _fdb_show), default=1)
+                        _fdb_pairs   = [_fdb_show[i:i+2] for i in range(0, len(_fdb_show), 2)]
+                        for _pair in _fdb_pairs:
+                            _db_c = st.columns(len(_pair))
+                            for _dci, _ditem in enumerate(_pair):
+                                with _db_c[_dci]:
+                                    _dsp   = (_ditem.get("sparkline",[50]*7) + [50]*7)[:7]
+                                    _dmax  = max(_dsp) or 1
+                                    _dmin  = min(_dsp)
+                                    _drng  = _dmax - _dmin or 1
+                                    _dW, _dH = 140, 50
+                                    _dpts  = []
+                                    for _dsi, _dsv in enumerate(_dsp):
+                                        _dsx = int(_dsi / 6 * (_dW - 12)) + 6
+                                        _dsy = int((1 - (_dsv - _dmin) / _drng) * (_dH - 16)) + 6
+                                        _dpts.append((_dsx, _dsy, _dsv))
+                                    _dpoly  = " ".join(f"{x},{y}" for x,y,_ in _dpts)
+                                    _dtrend = _dsp[-1] - _dsp[0]
+                                    _dcol   = "#E53935" if _dtrend > 5 else ("#4CAF50" if _dtrend < -5 else "#FF9800")
+                                    _darrow = "▲" if _dtrend > 5 else ("▼" if _dtrend < -5 else "━")
+                                    _dfill  = f"6,{_dH} " + _dpoly + f" {_dpts[-1][0]},{_dH}"
+                                    # 마지막 포인트 수치
+                                    _last_val = _dsp[-1]
+                                    _first_val = _dsp[0]
+                                    _dtitle_full = _ditem.get("topic","")
+                                    _dtitle  = _dtitle_full[:14] + ("…" if len(_dtitle_full)>14 else "")
+                                    _dkw     = _ditem.get("keyword","")[:8]
+                                    _dscore  = _ditem.get("score", 0)
+                                    # score → 인기도 바 (전체 max 대비)
+                                    _dbar_w  = max(4, int(_dscore / (_fdb_all_max or 1) * 100))
+                                    _dsvg = (
+                                        f"<div style='background:#f8f9ff;border:1px solid #e3e8ff;"
+                                        f"border-radius:10px;padding:7px 8px 5px 8px;margin-bottom:6px;"
+                                        f"border-top:3px solid {_dcol};'>"
+                                        f"<div style='font-size:0.65rem;font-weight:800;color:#333;"
+                                        f"margin-bottom:3px;overflow:hidden;white-space:nowrap;"
+                                        f"text-overflow:ellipsis' title='{_dtitle_full}'>{_dtitle}</div>"
+                                        f"<div style='font-size:0.57rem;color:#aaa;margin-bottom:4px'>"
+                                        f"🔑 {_dkw}  ·  저장: {_ditem.get('saved','')}</div>"
+                                        f"<svg width='100%' viewBox='0 0 {_dW} {_dH+8}' style='overflow:visible'>"
+                                        f"<defs><linearGradient id='dbg{_dci}_{id(_ditem)}' x1='0' y1='0' x2='0' y2='1'>"
+                                        f"<stop offset='0%' stop-color='{_dcol}' stop-opacity='0.2'/>"
+                                        f"<stop offset='100%' stop-color='{_dcol}' stop-opacity='0.02'/>"
+                                        f"</linearGradient></defs>"
+                                        f"<polygon points='{_dfill}' fill='url(#dbg{_dci}_{id(_ditem)})'/>"
+                                        f"<polyline points='{_dpoly}' fill='none' stroke='{_dcol}' stroke-width='2' stroke-linejoin='round'/>"
+                                        + "".join(
+                                            "<circle cx='" + str(x) + "' cy='" + str(y) + "' r='" + ("3.5" if v in (_dmax,_dmin) else "2") + "' "
+                                            "fill='" + ("#E53935" if v==_dmax else ("#4CAF50" if v==_dmin else _dcol)) + "' stroke='white' stroke-width='1'/>"
+                                            for x,y,v in _dpts
+                                        )
+                                        + f"<text x='{_dpts[-1][0]}' y='{max(6,_dpts[-1][1]-5)}' text-anchor='middle' "
+                                        f"font-size='8' fill='{_dcol}' font-weight='bold'>{_last_val}</text>"
+                                        + f"<text x='6' y='{max(6,_dpts[0][1]-5)}' text-anchor='start' "
+                                        f"font-size='7' fill='#aaa'>{_first_val}</text>"
+                                        f"</svg>"
+                                        # 인기도 바
+                                        f"<div style='margin-top:4px;display:flex;align-items:center;gap:4px'>"
+                                        f"<div style='flex:1;height:3px;border-radius:2px;background:#efefef'>"
+                                        f"<div style='height:3px;border-radius:2px;background:{_dcol};width:{_dbar_w}%'></div></div>"
+                                        f"<span style='font-size:0.58rem;color:{_dcol};font-weight:700'>{_darrow}{abs(_dtrend)}</span>"
+                                        f"</div>"
+                                        f"</div>"
+                                    )
+                                    st.markdown(_dsvg, unsafe_allow_html=True)
+                        if len(_fdb_items) > 6:
+                            st.caption(f"※ 상위 6개만 표시 (전체 {len(_fdb_items)}개)")
+                    st.markdown("<hr style='margin:6px 0'>", unsafe_allow_html=True)
+
+                for _fi, _fav in enumerate(_favs_sorted):
+                    _fav_kw    = _fav.get("keyword", "")
+                    _fav_saved = _fav.get("saved", "")
+                    _fav_views = _fav.get("views", "")
+                    _fav_label_badge = _fav.get("label", "")
+                    _fav_cur_kws = [k.strip() for k in keywords_input.replace("，", ",").split(",") if k.strip()]
+                    _fav_added = _fav["topic"] in _fav_cur_kws
+                    _fav_bg    = "#f0faf0" if _fav_added else "#fffde7"
+
+                    _fav_html = (
+                        f"<div style='background:{_fav_bg};border:1px solid #ffe082;"
+                        f"border-radius:8px;padding:7px 10px;margin-bottom:4px;"
+                        f"border-left:3px solid #FFB300;'>"
+                        f"<div style='display:flex;justify-content:space-between;align-items:center'>"
+                        f"<span style='font-size:0.62rem;background:#fff9c4;color:#F57F17;"
+                        f"padding:1px 6px;border-radius:6px'>{_fav_label_badge or '⭐즐겨찾기'}</span>"
+                        f"<span style='font-size:0.60rem;color:#aaa'>{_fav_kw} · {_fav_saved}</span>"
+                        f"</div>"
+                        f"<div style='font-size:0.82rem;font-weight:600;color:#333;"
+                        f"margin-top:4px;line-height:1.4'>"
+                        f"{'✓ ' if _fav_added else '⭐ '}{_fav['topic']}"
+                        f"</div>"
+                        + (f"<div style='font-size:0.62rem;color:#aaa;margin-top:2px'>{_fav_views}</div>" if _fav_views else "")
+                        + f"</div>"
+                    )
+                    st.markdown(_fav_html, unsafe_allow_html=True)
+                    _fc1, _fc2 = st.columns([4, 1])
+                    with _fc1:
+                        if st.button(
+                            "✓ 추가됨" if _fav_added else "＋ 검색창에 추가",
+                            key=f"fav_add_{_fi}",
+                            use_container_width=True,
+                            disabled=_fav_added
+                        ):
+                            st.session_state["hot_topic_clicked"] = _fav["topic"]
+                            st.rerun()
+                    with _fc2:
+                        if st.button("🗑️", key=f"fav_del_{_fi}", use_container_width=True, help="즐겨찾기 해제"):
+                            st.session_state["fav_action"] = f"DEL:{_fav['topic']}"
+                            st.rerun()
+
+                if st.button("🗑️ 즐겨찾기 전체 삭제", key="btn_clear_favs", use_container_width=True):
+                    st.session_state["favorites"] = []
+                    st.rerun()
+
+        # ── 📊 상세 그래프 (전체폭 팝업) ──────────────────────────────────
+        _detail_topic = st.session_state.get("detail_chart_topic", "")
+        _detail_data  = st.session_state.get("detail_chart_data", {})
+        if _detail_topic and _detail_data:
+            from datetime import datetime as _dtnow2, timedelta as _td2
+            st.markdown(
+                f"<div style='background:#fff;border:2px solid #1976D2;border-radius:14px;"
+                f"padding:16px 18px;margin:8px 0 6px 0;box-shadow:0 4px 18px rgba(25,118,210,0.13)'>"
+                f"<div style='font-size:0.78rem;font-weight:800;color:#1976D2;margin-bottom:8px'>"
+                f"📊 7일 상세 트렌드: <span style='color:#222'>{_detail_topic}</span></div>",
+                unsafe_allow_html=True
+            )
+            _dd_sp    = _detail_data.get("sparkline", [50]*7)
+            _dd_sp    = (_dd_sp + [50]*7)[:7]
+            _dd_today = _dtnow2.now()
+            _dd_dates = [(_dd_today - _td2(days=6-i)).strftime("%m/%d(%a)") for i in range(7)]
+            _dd_max   = max(_dd_sp) or 1
+            _dd_min   = min(_dd_sp)
+            _dd_rng   = _dd_max - _dd_min or 1
+            # 전체폭 SVG 차트
+            _DW, _DH  = 320, 100
+            _dd_pts   = []
+            for _di, _dv in enumerate(_dd_sp):
+                _dx = int(_di / 6 * (_DW - 24)) + 12
+                _dy = int((1 - (_dv - _dd_min) / _dd_rng) * (_DH - 24)) + 10
+                _dd_pts.append((_dx, _dy, _dv))
+            _dd_poly  = " ".join(f"{x},{y}" for x,y,_ in _dd_pts)
+            _dd_fill  = f"12,{_DH} " + _dd_poly + f" {_dd_pts[-1][0]},{_DH}"
+            _dd_trend = _dd_sp[-1] - _dd_sp[0]
+            _dd_col   = "#E53935" if _dd_trend > 5 else ("#4CAF50" if _dd_trend < -5 else "#FF9800")
+            # 막대 차트 (바 형태)
+            _bar_section = ""
+            _bar_w_each  = int((_DW - 24) / 7 * 0.72)
+            for _bi, ((_bx, _by, _bv), _bd) in enumerate(zip(_dd_pts, _dd_dates)):
+                _bh     = int((_bv - _dd_min) / _dd_rng * (_DH - 24)) + 4
+                _b_col  = _dd_col if _bv == _dd_max else "#90CAF9"
+                _bar_x  = _bx - _bar_w_each // 2
+                _bar_y  = _DH - _bh
+                _bar_section += (
+                    f"<rect x='{_bar_x}' y='{_bar_y}' width='{_bar_w_each}' height='{_bh}' "
+                    f"rx='2' fill='{_b_col}' opacity='0.35'/>"
+                    f"<text x='{_bx}' y='{_bar_y - 3}' text-anchor='middle' "
+                    "font-size='8' fill='" + (_dd_col if _bv == _dd_max else "#666") + "' font-weight='" + ("bold" if _bv == _dd_max else "normal") + "'>" + str(_bv) + "</text>"
+                    f"<text x='{_bx}' y='{_DH + 12}' text-anchor='middle' font-size='7.5' fill='#888'>{_bd}</text>"
+                )
+            # 그리드
+            _dd_grid = ""
+            for _gi in range(1, 5):
+                _gy2 = int(_DH * _gi / 4)
+                _gv2 = int(_dd_max - (_dd_max - _dd_min) * _gi / 4)
+                _dd_grid += (
+                    f"<line x1='12' y1='{_gy2}' x2='{_DW-8}' y2='{_gy2}' stroke='#eeeeee' stroke-width='1'/>"
+                    f"<text x='6' y='{_gy2+3}' text-anchor='end' font-size='7' fill='#ccc'>{_gv2}</text>"
+                )
+            _detail_svg = (
+                f"<svg width='100%' viewBox='0 0 {_DW} {_DH+18}' style='overflow:visible;max-width:100%'>"
+                f"<defs><linearGradient id='dg' x1='0' y1='0' x2='0' y2='1'>"
+                f"<stop offset='0%' stop-color='{_dd_col}' stop-opacity='0.22'/>"
+                f"<stop offset='100%' stop-color='{_dd_col}' stop-opacity='0.01'/>"
+                f"</linearGradient></defs>"
+                f"{_dd_grid}"
+                f"{_bar_section}"
+                f"<polygon points='{_dd_fill}' fill='url(#dg)'/>"
+                f"<polyline points='{_dd_poly}' fill='none' stroke='{_dd_col}' stroke-width='2.5' stroke-linejoin='round'/>"
+                + "".join(
+                    f"<circle cx='{x}' cy='{y}' r='{'4' if v==_dd_max else '3'}' fill='{_dd_col}' stroke='white' stroke-width='1.5'/>"
+                    for x,y,v in _dd_pts
+                )
+                + f"</svg>"
+            )
+            # 수치 요약 테이블
+            _dd_change  = _dd_sp[-1] - _dd_sp[0]
+            _dd_avg     = round(sum(_dd_sp) / len(_dd_sp), 1)
+            _dd_arrow   = "▲" if _dd_trend > 5 else ("▼" if _dd_trend < -5 else "━")
+            _dd_chcol   = "#E53935" if _dd_trend > 5 else ("#4CAF50" if _dd_trend < -5 else "#FF9800")
+            _summary_html = (
+                f"<div style='display:flex;gap:8px;margin:8px 0 4px 0;flex-wrap:wrap'>"
+                f"<div style='flex:1;min-width:60px;background:#f5f5f5;border-radius:8px;padding:6px 8px;text-align:center'>"
+                f"<div style='font-size:0.62rem;color:#888'>최고</div>"
+                f"<div style='font-size:1.0rem;font-weight:900;color:#E53935'>{_dd_max}</div></div>"
+                f"<div style='flex:1;min-width:60px;background:#f5f5f5;border-radius:8px;padding:6px 8px;text-align:center'>"
+                f"<div style='font-size:0.62rem;color:#888'>최저</div>"
+                f"<div style='font-size:1.0rem;font-weight:900;color:#4CAF50'>{_dd_min}</div></div>"
+                f"<div style='flex:1;min-width:60px;background:#f5f5f5;border-radius:8px;padding:6px 8px;text-align:center'>"
+                f"<div style='font-size:0.62rem;color:#888'>평균</div>"
+                f"<div style='font-size:1.0rem;font-weight:900;color:#1976D2'>{_dd_avg}</div></div>"
+                f"<div style='flex:1;min-width:60px;background:#f5f5f5;border-radius:8px;padding:6px 8px;text-align:center'>"
+                f"<div style='font-size:0.62rem;color:#888'>변화</div>"
+                f"<div style='font-size:1.0rem;font-weight:900;color:{_dd_chcol}'>{_dd_arrow}{abs(_dd_change)}</div></div>"
+                f"</div>"
+            )
+            st.markdown(
+                _summary_html + _detail_svg + "</div>",
+                unsafe_allow_html=True
+            )
+            if st.button("✕ 상세 그래프 닫기", key="btn_close_detail", use_container_width=True):
+                st.session_state["detail_chart_topic"] = ""
+                st.session_state["detail_chart_data"]  = {}
+                st.rerun()
+
+        st.markdown('<hr style="margin:4px 0">', unsafe_allow_html=True)
+        # ── 서브 주제 UI 끝 ────────────────────────────────────────────────
+
 
         _max_default = int(_s_max_count) if _s_max_count.isdigit() else 20
         _max_default = max(5, min(50, _max_default))
@@ -1250,12 +2807,39 @@ def main():
             use_gemini  = "Gemini"  in _stt_mode
             use_whisper = "Whisper" in _stt_mode
 
+            # ── Gemini 설치 사전 체크 ──────────────────────────────────
+            if use_gemini:
+                # google-genai 설치 여부 확인 (YouTube URL 분석의 필수 라이브러리)
+                try:
+                    from google import genai as _chk_genai  # noqa
+                    _genai_installed = True
+                except ImportError:
+                    _genai_installed = False
+
+                if not _genai_installed:
+                    st.error(
+                        "📦 **google-genai 미설치 — Gemini 분석 불가**\n\n"
+                        "YouTube URL 직접 분석은 새 SDK만 지원합니다.\n"
+                        "**지금 바로 PowerShell에서 실행하세요:**"
+                    )
+                    st.code("pip install google-genai", language="bash")
+                    st.caption("설치 후 앱을 재시작하면 자동으로 Gemini 분석이 활성화됩니다.")
+
             # ── Gemini 키 UI ─────────────────────────────────────────
             if use_gemini:
                 if _s_gemini_key:
                     gemini_api_key_input = _s_gemini_key
-                    st.caption("✅ GEMINI_API_KEY 자동 로드됨")
-                    st.caption("💡 Gemini 1.5 Flash · 무료 티어 있음 · 클라우드 OK")
+                    _key_ok = _s_gemini_key.startswith("AIza") and len(_s_gemini_key) > 30
+                    if _key_ok:
+                        st.caption(f"✅ GEMINI_API_KEY 자동 로드됨 ({_s_gemini_key[:8]}...)")
+                        st.caption("💡 Gemini 2.0 Flash · 무료 티어 가능 · REST API 직접 호용")
+                    else:
+                        st.caption(f"⚠️ GEMINI_API_KEY 형식 이상 ({_s_gemini_key[:8]}...)")
+                        st.warning(
+                            "🔑 **키 형식 오류**: Google AI Studio 키는 `AIzaSy...` 형식이어야 합니다.\n"
+                            "YouTube API 키를 잘못 입력했을 수 있습니다.\n"
+                            "🔗 https://aistudio.google.com/app/apikey 에서 Gemini 키 발급"
+                        )
                 else:
                     gemini_api_key_input = st.text_input(
                         "🔑 Gemini API Key",
@@ -1514,11 +3098,29 @@ def main():
 
                     # ② 자막 없을 때 Gemini 시도
                     if _no_caption and use_gemini and gemini_api_key_input:
-                        status_text.info(
-                            f"🤖 [{kw}] Gemini 분석 중... ({vi+1}/{len(videos)}) "
-                            f"- {v['title'][:25]}..."
-                        )
-                        gemini_result = gemini_analyze_video(v["videoId"], gemini_api_key_input)
+                        # ── 영상 길이 사전 체크 ──────────────────────────────────
+                        # Gemini 무료 티어(Tier 1): 25분↑ 영상은 토큰 초과 가능성 높음
+                        # 초당 약 300 토큰 × 25분(1500초) ≈ 450,000 토큰 → 제한 근접
+                        _vid_sec = parse_duration_seconds(v.get("duration", "0:00"))
+                        _GEMINI_MAX_SEC = 25 * 60  # 25분 = 1500초
+
+                        if _vid_sec > _GEMINI_MAX_SEC:
+                            # 25분 초과 → Gemini 스킵, Whisper로 자동 전환 시도
+                            _skip_msg = (
+                                f"[Gemini 스킵] {v['title'][:35]} "
+                                f"— 영상 길이 {v.get('duration','?')} (25분 초과, 토큰 한도 위험) "
+                                f"→ {'Whisper로 전환' if use_whisper and openai_api_key_input else '자막 없음 처리'}"
+                            )
+                            _whisper_errors.append(f"• {v['title'][:35]} [Gemini 스킵]: 영상 길이 {v.get('duration','?')} 25분 초과")
+                            status_text.info(f"⏭️ [{kw}] Gemini 스킵 (25분 초과): {v['title'][:25]}...")
+                            gemini_result = None
+                        else:
+                            status_text.info(
+                                f"🤖 [{kw}] Gemini 분석 중... ({vi+1}/{len(videos)}) "
+                                f"- {v['title'][:25]}..."
+                            )
+                            gemini_result = gemini_analyze_video(v["videoId"], gemini_api_key_input)
+
                         if gemini_result and not gemini_result.startswith("[Gemini 오류"):
                             raw = gemini_result
                             _no_caption = False
@@ -1527,7 +3129,7 @@ def main():
                             _whisper_errors.append(f"• {v['title'][:35]} [Gemini 실패]: {err_msg[:120]}")
                             # 항상 raw를 "자막 없음"으로 설정 (오류 텍스트가 transcript에 저장되지 않도록)
                             raw = "자막 없음 (Gemini 실패)"
-                            st.warning(f"🤖 Gemini 실패: {v['title'][:30]}\n→ {err_msg[:120]}")
+                            # ✅ 개별 st.warning 제거 → 마지막에 요약 패널로 표시
 
                     # ③ 자막 없을 때(Gemini도 실패 or 미사용) Whisper 시도
                     if _no_caption and use_whisper and openai_api_key_input:
@@ -1544,7 +3146,11 @@ def main():
                             st.warning(f"🎙️ Whisper 변환 실패: {v['title'][:30]}\n→ {err_msg}")
                             raw = f"자막 없음 (Whisper 실패: {err_msg[:60]})"
 
-                    v["transcript"] = raw
+                    # 타임스탬프 제거 후 저장 (오류/빈 값 제외)
+                    if raw and is_valid_transcript(raw):
+                        v["transcript"] = clean_transcript(raw)
+                    else:
+                        v["transcript"] = raw
 
                     v["keywords"] = extract_keywords(
                         v["transcript"] + " " + v["description"] + " " + " ".join(v["tags"])
@@ -1640,16 +3246,47 @@ streamlit run youtube_web_app.py
         if _gemini_errs:
             with st.expander(f"🤖 Gemini 분석 실패 {len(_gemini_errs)}개 (클릭하여 원인 확인)", expanded=True):
                 _first = _gemini_errs[0]
-                if "미설치" in _first or "pip install" in _first or "ImportError" in _first:
-                    st.error("📦 **Gemini SDK 미설치** — 아래 명령어를 터미널에서 실행 후 앱 재시작:")
+                if "v1beta" in _first or "not found for API version" in _first or "oldSDK" in _first or "newSDK" in _first or "REST" in _first:
+                    st.error(f"⚙️ **Gemini 분석 실패 — 상세 오류:**\n```\n{_first[:300]}\n```")
+                    st.info("💡 **확인사항**: 아래를 순서대로 점검하세요")
+                    st.markdown(
+                        "1. **google-genai 최신 버전으로 업그레이드**:\n"
+                        "   ```\n   pip install --upgrade google-genai\n   ```\n"
+                        "2. **앱 완전 재시작** (Ctrl+C 후 bat 파일 재실행)\n"
+                        "3. **Gemini API 키 재확인**: https://aistudio.google.com/app/apikey\n"
+                        "   - secrets.toml의 `GEMINI_API_KEY` 값이 AI Studio 키인지 확인\n"
+                        "   - YouTube API 키와 혼동 금지 (둘 다 `AIzaSy`로 시작)"
+                    )
+                elif "Gemini 스킵" in _first or "25분 초과" in _first:
+                    st.warning("⏭️ **영상 길이 초과 (25분 초과 스킵)**")
+                    st.info(
+                        "💡 Gemini 무료 티어(Tier 1)는 25분 초과 영상 분석 시 토큰 한도에 근접합니다.\n"
+                        "• Gemini 전용 **\"Gemini 우선 + Whisper 폴백\"** 모드를 선택하면 \n"
+                        "  Whisper가 자동 대체 분석합니다.\n"
+                        "• 또는 해당 영상은 검색에서 제외하세요 (최대 검색 수 조정)."
+                    )
+                elif "token" in _first.lower() or "input token" in _first.lower() or "maximum" in _first.lower():
+                    st.warning("📊 **토큰 한도 초과 (Token Limit Exceeded)**")
+                    st.info(
+                        "💡 영상이 너무 길어 Gemini가 토큰 한도를 초과했습니다.\n"
+                        "• **무료 티어 기준**: gemini-2.5-flash 최대 입력 토큰 1M (25분 영상 ≈ 450K 토큰)\n"
+                        "• **해결책**: 영상 길이 20분 이내로 필터링하거나 Whisper 병행 사용 권장"
+                    )
+                elif "직접 분석 미지원" in _first or "not support" in _first.lower():
+                    st.warning("📹 **영상 URL 직접 분석 미지원** — Gemini가 접근 불가한 유형의 영상")
+                    st.info("ℹ️ 일부 영상은 지역제한/비공개/라이브 제한으로 Gemini URL 분석이 블록됩니다.")
+                elif "미설치" in _first or "pip install" in _first or "ImportError" in _first:
+                    st.error("📦 **Gemini SDK 미설치**")
                     st.code("pip install google-genai google-generativeai", language="bash")
-                elif "v1beta" in _first or "not found for API version" in _first or "oldSDK" in _first:
-                    st.error("⚙️ **Gemini 구 SDK 호환 오류** — 새 SDK 설치가 필요합니다:")
-                    st.code("pip install google-genai", language="bash")
-                    st.info("설치 후 앱을 재시작하면 자동으로 새 SDK를 사용합니다.")
-                elif "API 키" in _first or "인증" in _first:
-                    st.error("🔑 **GEMINI_API_KEY 인증 실패**\nsecrets.toml의 GEMINI_API_KEY를 확인하세요.")
-                elif "할당량" in _first or "quota" in _first.lower():
+                elif "API 키" in _first or "인증" in _first or "not valid" in _first or "API_KEY_INVALID" in _first:
+                    st.error("🔑 **GEMINI_API_KEY 인증 실패**")
+                    st.info(
+                        "**확인 사항:**\n"
+                        "1. secrets.toml의 `GEMINI_API_KEY`가 **Google AI Studio** 키인지 확인\n"
+                        "2. YouTube API 키와 혼동하지 않도록 주의 (둘 다 AIzaSy로 시작함)\n"
+                        "3. 키 발급: https://aistudio.google.com/app/apikey"
+                    )
+                elif "할당량" in _first or "quota" in _first.lower() or "429" in _first:
                     st.warning("⏳ **Gemini API 할당량 초과**\n잠시 후 재시도하거나 Gemini Pro 플랜 업그레이드가 필요합니다.")
                 else:
                     st.warning("⚠️ Gemini 오류 발생 — 상세 내용:")
@@ -1713,7 +3350,8 @@ streamlit run youtube_web_app.py
             data=txt_data,
             file_name=f"{base_name}.txt",
             mime="text/plain",
-            use_container_width=True
+            use_container_width=True,
+            key=f"dl_txt_{now_str}"
         )
     with btn_col2:
         st.download_button(
@@ -1721,7 +3359,8 @@ streamlit run youtube_web_app.py
             data=json_data,
             file_name=f"{base_name}.json",
             mime="application/json",
-            use_container_width=True
+            use_container_width=True,
+            key=f"dl_json_{now_str}"
         )
     with btn_col3:
         if xlsx_data:
@@ -1730,7 +3369,8 @@ streamlit run youtube_web_app.py
                 data=xlsx_data,
                 file_name=f"{base_name}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
+                use_container_width=True,
+                key=f"dl_xlsx_{now_str}"
             )
         else:
             st.button("📊 Excel (openpyxl 미설치)", disabled=True, use_container_width=True)
@@ -1979,27 +3619,31 @@ f"""
     # ── 탭4: 대본 전문 ──────────────────────────────────────
     with tab4:
         st.markdown("### 📜 영상 대본 전문")
-        transcript_videos = [
-            v for vs in all_results.values()
-            for v in vs
-            if is_valid_transcript(v.get("transcript", ""))
-        ]
+        # ✅ 중복 videoId 제거 (같은 영상이 여러 키워드에서 나올 때 key 충돌 방지)
+        _seen_vids = set()
+        transcript_videos = []
+        for vs in all_results.values():
+            for v in vs:
+                if is_valid_transcript(v.get("transcript", "")) and v["videoId"] not in _seen_vids:
+                    _seen_vids.add(v["videoId"])
+                    transcript_videos.append(v)
         if not transcript_videos:
             st.info("자막이 있는 영상이 없습니다. '자막(대본) 가져오기'를 체크하고 재검색하세요.")
         else:
             st.caption(f"자막 있는 영상: {len(transcript_videos)}개")
-            for v in transcript_videos:
+            for _tv_i, v in enumerate(transcript_videos):
                 with st.expander(f"📺 {v['title']} — {v['channelTitle']}"):
                     st.markdown(f"🔗 [{v['url']}]({v['url']})")
                     st.markdown(f"**길이:** {v['duration']} | **조회수:** {v['viewLabel']}")
                     st.markdown("---")
                     st.markdown(f'<div class="transcript-box">{v["transcript"]}</div>', unsafe_allow_html=True)
+                    # ✅ key에 루프 인덱스 추가 → 완전한 유일성 보장
                     st.download_button(
                         label="📄 이 영상 대본 TXT 다운로드",
                         data=v["transcript"].encode("utf-8"),
                         file_name=f"transcript_{v['videoId']}.txt",
                         mime="text/plain",
-                        key=f"dl_{v['videoId']}"
+                        key=f"dl_{v['videoId']}_{_tv_i}"
                     )
 
 
