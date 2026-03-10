@@ -274,6 +274,31 @@ st.markdown("""
   margin: 22px 0 13px 0;
 }
 
+
+/* ── 요약 텍스트 박스 ── */
+.summary-text {
+  font-size: .88rem !important;
+  line-height: 1.68 !important;
+  color: #475569 !important;
+  background: #f8faff !important;
+  border-left: 3px solid #bfdbfe !important;
+  border-radius: 0 8px 8px 0 !important;
+  padding: 10px 14px !important;
+  margin: 4px 0 10px 0 !important;
+  word-break: keep-all !important;
+  white-space: pre-wrap !important;
+}
+
+/* ── 전역 Markdown blockquote 크기 제한 ── */
+.stMarkdown blockquote,
+.stMarkdown blockquote p,
+[data-testid="stMarkdownContainer"] blockquote,
+[data-testid="stMarkdownContainer"] blockquote p {
+  font-size: .88rem !important;
+  line-height: 1.68 !important;
+  color: #475569 !important;
+}
+
 /* ── 대본 박스 ── */
 .transcript-box {
   background: #f8fafc;
@@ -1318,6 +1343,19 @@ if st.session_state.get("dark_mode", False):
     [data-testid="stSidebar"] .btn-success .stButton button:hover {
       background: linear-gradient(135deg, #166534 0%, #14532d 100%) !important;
       box-shadow: 0 4px 14px rgba(20,83,45,.50) !important;
+    }
+
+    /* 다크모드 요약 텍스트 */
+    .summary-text {
+      background: #1e2038 !important;
+      border-left-color: #4f6aaa !important;
+      color: #c5c8e0 !important;
+    }
+    .stMarkdown blockquote,
+    .stMarkdown blockquote p,
+    [data-testid="stMarkdownContainer"] blockquote p {
+      font-size: .88rem !important;
+      color: #c5c8e0 !important;
     }
 </style>""", unsafe_allow_html=True)
 
@@ -5444,7 +5482,10 @@ f"""
 
                         if v.get("summary") and v["summary"] != "(요약 없음)":
                             st.markdown("<div class='section-title'>📋 요약</div>", unsafe_allow_html=True)
-                            st.markdown(f"> {v['summary']}")
+                            st.markdown(
+                                f"<div class='summary-text'>{v['summary']}</div>",
+                                unsafe_allow_html=True
+                            )
 
                         if v.get("tags"):
                             with st.expander(f"🏷️ 태그 ({len(v['tags'])}개)"):
