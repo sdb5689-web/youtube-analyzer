@@ -6,7 +6,13 @@
 # 실행: streamlit run youtube_web_app.py
 # ================================================================
 import streamlit as st
+try:
+    from streamlit_sortables import sort_items as _sort_items
+    _HAS_SORTABLES = True
+except ImportError:
+    _HAS_SORTABLES = False
 import requests, json, re, time, os, io
+import urllib.parse
 from collections import Counter, defaultdict
 from datetime import datetime
 
@@ -47,193 +53,1273 @@ st.set_page_config(
     page_title="🎬 YouTube 분석 도구",
     page_icon="🎬",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # ─── 커스텀 CSS ───────────────────────────────────────────────
 st.markdown("""
 <style>
-    .main-header {
-        background: linear-gradient(135deg, #1B3A6B 0%, #0D2347 100%);
-        padding: 20px 30px;
-        border-radius: 12px;
-        color: white;
-        margin-bottom: 20px;
-    }
-    .main-header h1 { margin: 0; font-size: 2rem; }
-    .main-header p  { margin: 5px 0 0 0; opacity: 0.9; }
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
 
-    .metric-card {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 10px;
-        padding: 15px;
-        text-align: center;
-    }
-    .metric-card .value { font-size: 1.8rem; font-weight: bold; color: #1B3A6B; }
-    .metric-card .label { font-size: 0.85rem; color: #666; margin-top: 4px; }
+/* ══════════════════════════════════════════════════════════════
+   CSS 변수 (디자인 토큰)
+══════════════════════════════════════════════════════════════ */
+:root {
+  /* 브랜드 컬러 */
+  --c-primary:      #2563eb;
+  --c-primary-dark: #1d4ed8;
+  --c-primary-deep: #1e40af;
+  --c-primary-soft: #eff6ff;
+  --c-primary-mid:  #bfdbfe;
 
-    .video-card {
-        background: white;
-        border: 1px solid #e0e0e0;
-        border-radius: 12px;
-        padding: 18px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-        transition: box-shadow 0.2s;
-    }
-    .video-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.13); }
-    .video-title { font-size: 1.05rem; font-weight: bold; color: #1a1a1a; }
-    .video-meta  { color: #666; font-size: 0.87rem; margin-top: 6px; }
-    .badge-hot   { background:#1B3A6B; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
-    .badge-good  { background:#FF8C00; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
-    .badge-new   { background:#4CAF50; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
-    .badge-norm  { background:#9E9E9E; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
-    .badge-shorts { background:#FF0050; color:white; padding:2px 8px; border-radius:4px; font-size:0.78rem; }
+  /* 중성색 */
+  --c-bg:       #f8faff;
+  --c-surface:  #ffffff;
+  --c-border:   #e4e8f4;
+  --c-border-hi:#c7d2fe;
 
-    .stat-row { display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; }
-    .stat-item{ background:#f0f2f6; border-radius:6px; padding:4px 12px; font-size:0.85rem; }
+  /* 텍스트 */
+  --c-txt:      #1e293b;
+  --c-txt-sub:  #475569;
+  --c-txt-mute: #94a3b8;
 
-    .keyword-tag {
-        display:inline-block; background:#e3f2fd; color:#1565c0;
-        border-radius:20px; padding:3px 12px; margin:3px;
-        font-size:0.82rem; border:1px solid #bbdefb;
-    }
-    .section-title {
-        font-size:1.1rem; font-weight:bold;
-        border-left:4px solid #1B3A6B;
-        padding-left:10px; margin:16px 0 10px 0;
-    }
-    .transcript-box {
-        background:#fafafa; border:1px solid #e0e0e0;
-        border-radius:8px; padding:12px; font-size:0.82rem;
-        max-height:200px; overflow-y:auto; line-height:1.6;
-    }
-    div[data-testid="stExpander"] { border-radius:10px; border:1px solid #e0e0e0; }
-    .stTabs [data-baseweb="tab"] { font-size:0.95rem; }
-    .stButton button { border-radius:8px; }
+  /* 상태색 */
+  --c-danger:   #dc2626;
+  --c-warn:     #d97706;
+  --c-success:  #059669;
 
-    /* ── 핫 서브토픽 버튼 스타일 ── */
-.hot-topic-btn button {
-    background: linear-gradient(135deg, #ff6b35, #f7931e) !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 16px !important;
-    font-size: 0.78rem !important;
-    padding: 4px 10px !important;
-    font-weight: 600 !important;
-    margin: 2px 0 !important;
-    transition: all 0.2s ease !important;
-    box-shadow: 0 2px 6px rgba(255,107,53,0.25) !important;
+  /* 반경 */
+  --r-sm:  8px;
+  --r-md:  11px;
+  --r-lg:  14px;
+  --r-xl:  18px;
+
+  /* 그림자 */
+  --sh-xs: 0 1px 3px rgba(0,0,0,.06);
+  --sh-sm: 0 2px 10px rgba(0,0,0,.07);
+  --sh-md: 0 4px 18px rgba(0,0,0,.10);
+  --sh-lg: 0 8px 32px rgba(0,0,0,.13);
+
+  /* 전환 */
+  --tr: all .18s ease;
 }
-.hot-topic-btn button:hover {
-    background: linear-gradient(135deg, #e55a2b, #e6821a) !important;
-    box-shadow: 0 4px 12px rgba(255,107,53,0.4) !important;
-    transform: translateY(-1px) !important;
+
+/* ══════════════════════════════════════════════════════════════
+   글로벌 리셋
+══════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; }
+
+.stApp {
+  font-family: "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  background: var(--c-bg) !important;
 }
-.rank-badge {
-    display:inline-block;
-    background:#ff4444;
-    color:white;
-    border-radius:50%;
-    width:18px; height:18px;
-    font-size:0.65rem;
-    font-weight:700;
-    text-align:center;
-    line-height:18px;
-    margin-right:4px;
+
+/* ── 메인 컨테이너 ── */
+.main .block-container {
+  padding: 1.4rem 1.8rem 2.5rem 1.8rem !important;
+  max-width: 1280px !important;
 }
-.rank-badge.gold { background:#f7931e; }
-.rank-badge.silver { background:#9e9e9e; }
-.rank-badge.bronze { background:#a0522d; }
+
+/* ── 전역 스크롤바 ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: #c7d2e8; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ══════════════════════════════════════════════════════════════
+   메인 헤더
+══════════════════════════════════════════════════════════════ */
+.main-header {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
+  padding: 26px 34px;
+  border-radius: var(--r-xl);
+  color: white;
+  margin-bottom: 26px;
+  box-shadow: 0 8px 32px rgba(37,99,235,.28);
+  position: relative;
+  overflow: hidden;
+}
+.main-header::before {
+  content: '';
+  position: absolute;
+  top: -60%; right: -8%;
+  width: 320px; height: 320px;
+  background: rgba(255,255,255,.06);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.main-header::after {
+  content: '';
+  position: absolute;
+  bottom: -40%; left: -5%;
+  width: 200px; height: 200px;
+  background: rgba(255,255,255,.04);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.main-header h1 {
+  margin: 0;
+  font-size: 1.95rem;
+  font-weight: 700;
+  letter-spacing: -.03em;
+}
+.main-header p {
+  margin: 7px 0 0 0;
+  opacity: .88;
+  font-size: 0.96rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   메트릭 카드
+══════════════════════════════════════════════════════════════ */
+.metric-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 20px 22px;
+  text-align: center;
+  box-shadow: var(--sh-sm);
+  transition: var(--tr);
+}
+.metric-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--sh-md);
+  border-color: var(--c-border-hi);
+}
+.metric-card .value {
+  font-size: 2.0rem;
+  font-weight: 700;
+  color: var(--c-primary);
+  line-height: 1.15;
+}
+.metric-card .label {
+  font-size: 0.82rem;
+  color: var(--c-txt-sub);
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   비디오 카드
+══════════════════════════════════════════════════════════════ */
+.video-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--sh-xs);
+  transition: var(--tr);
+}
+.video-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-md);
+  border-color: var(--c-border-hi);
+}
+.video-title {
+  font-size: 1.0rem;
+  font-weight: 700;
+  color: var(--c-txt);
+  line-height: 1.45;
+}
+.video-meta {
+  color: var(--c-txt-sub);
+  font-size: 0.85rem;
+  margin-top: 7px;
+  line-height: 1.5;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   배지
+══════════════════════════════════════════════════════════════ */
+.badge-hot    { background: var(--c-primary);  color:#fff; padding:3px 10px; border-radius:20px; font-size:.76rem; font-weight:600; display:inline-block; }
+.badge-good   { background: var(--c-warn);     color:#fff; padding:3px 10px; border-radius:20px; font-size:.76rem; font-weight:600; display:inline-block; }
+.badge-new    { background: var(--c-success);  color:#fff; padding:3px 10px; border-radius:20px; font-size:.76rem; font-weight:600; display:inline-block; }
+.badge-norm   { background: var(--c-txt-mute); color:#fff; padding:3px 10px; border-radius:20px; font-size:.76rem; font-weight:600; display:inline-block; }
+.badge-shorts { background: var(--c-danger);   color:#fff; padding:3px 10px; border-radius:20px; font-size:.76rem; font-weight:600; display:inline-block; }
+
+/* ── 통계 행 ── */
+.stat-row  { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+.stat-item {
+  background: #f1f5f9;
+  border-radius: var(--r-sm);
+  padding: 4px 12px;
+  font-size: .83rem;
+  color: var(--c-txt-sub);
+  font-weight: 500;
+}
+
+/* ── 키워드 태그 ── */
+.keyword-tag {
+  display: inline-block;
+  background: var(--c-primary-soft);
+  color: var(--c-primary-dark);
+  border-radius: 20px;
+  padding: 4px 14px;
+  margin: 3px;
+  font-size: .82rem;
+  border: 1px solid var(--c-primary-mid);
+  font-weight: 500;
+  transition: background .15s;
+}
+.keyword-tag:hover { background: #dbeafe; }
+
+/* ── 섹션 제목 ── */
+.section-title {
+  font-size: 1.06rem;
+  font-weight: 700;
+  color: var(--c-primary-deep);
+  border-left: 4px solid var(--c-primary);
+  padding-left: 12px;
+  margin: 22px 0 13px 0;
+}
+
+/* ── 대본 박스 ── */
+.transcript-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--r-md);
+  padding: 14px;
+  font-size: .86rem;
+  max-height: 220px;
+  overflow-y: auto;
+  line-height: 1.72;
+  color: #334155;
+}
+
+/* ── 뷰 바 ── */
 .view-bar {
-    height:4px;
-    border-radius:2px;
-    background: linear-gradient(90deg, #ff6b35, #f7931e);
-    margin-top:2px;
+  height: 4px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #f97316, #ea580c);
+  margin-top: 3px;
 }
 
-/* ── 사이드바 간격 최소화 (메뉴 압축) ── */
-    [data-testid="stSidebar"] { overflow-y: auto !important; }
-    [data-testid="stSidebar"] > div:first-child {
-        padding-top: 0.4rem !important;
-        padding-bottom: 0.4rem !important;
-    }
-    [data-testid="stSidebar"] hr { margin: 2px 0 !important; padding: 0 !important; }
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3 {
-        margin-top: 2px !important; margin-bottom: 1px !important;
-        padding: 0 !important; font-size: 0.88rem !important; line-height: 1.2 !important;
-    }
-    [data-testid="stSidebar"] p { margin-top: 0 !important; margin-bottom: 0 !important; line-height: 1.3 !important; }
-    [data-testid="stSidebar"] label { font-size: 0.76rem !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
-    [data-testid="stSidebar"] .stTextInput  { margin-bottom: 0 !important; }
-    [data-testid="stSidebar"] .stTextArea   { margin-bottom: 0 !important; }
-    [data-testid="stSidebar"] .stSelectbox  { margin-bottom: 0 !important; }
-    [data-testid="stSidebar"] .stSlider     { margin-bottom: 0 !important; }
-    [data-testid="stSidebar"] .stCheckbox   { margin-bottom: 0 !important; }
-    [data-testid="stSidebar"] .stRadio      { margin-bottom: 0 !important; }
-    [data-testid="stSidebar"] .stTextInput > div,
-    [data-testid="stSidebar"] .stTextArea > div,
-    [data-testid="stSidebar"] .stSelectbox > div { margin-bottom: 0 !important; }
-    [data-testid="stSidebar"] .stTextArea textarea { min-height: 52px !important; font-size: 0.80rem !important; }
-    [data-testid="stSidebar"] .stCaption { margin-top: 0 !important; margin-bottom: 0 !important; font-size: 0.68rem !important; line-height: 1.1 !important; }
-    [data-testid="stSidebar"] .element-container { margin-bottom: 0 !important; padding-bottom: 0 !important; }
-    [data-testid="stSidebar"] .stButton { margin-top: 1px !important; margin-bottom: 1px !important; }
-    [data-testid="stSidebar"] .stButton button { font-size: 0.76rem !important; padding: 3px 8px !important; min-height: 26px !important; height: auto !important; }
+/* ── 랭크 배지 ── */
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  width: 21px; height: 21px;
+  font-size: .70rem;
+  font-weight: 700;
+  margin-right: 5px;
+  flex-shrink: 0;
+}
+.rank-badge.gold   { background: linear-gradient(135deg,#f59e0b,#d97706); }
+.rank-badge.silver { background: linear-gradient(135deg,#94a3b8,#64748b); }
+.rank-badge.bronze { background: linear-gradient(135deg,#b45309,#92400e); }
 
-    /* ── 서브주제 카드 버튼 행 전용 (4열 균등 아이콘 버튼) ── */
-    [data-testid="stSidebar"] .subtopic-btn-row .stButton button {
-        font-size: 0.80rem !important;
-        padding: 2px 2px !important;
-        min-height: 28px !important;
-        height: 28px !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: clip !important;
-        line-height: 1 !important;
-        border-radius: 6px !important;
-    }
-    /* 추가 버튼 (col1) — 텍스트 짧게 유지 */
-    [data-testid="stSidebar"] .subtopic-add-btn .stButton button {
-        font-size: 0.72rem !important;
-        padding: 2px 4px !important;
-        white-space: nowrap !important;
-    }
-    [data-testid="stSidebar"] [data-testid="stExpander"] { margin-bottom: 1px !important; }
-    [data-testid="stSidebar"] [data-testid="stExpander"] summary { padding: 3px 8px !important; font-size: 0.78rem !important; min-height: 28px !important; }
-    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] { font-size: 0.76rem !important; margin-bottom: 0 !important; }
+/* ══════════════════════════════════════════════════════════════
+   Streamlit 메인 영역 오버라이드
+══════════════════════════════════════════════════════════════ */
+/* Expander */
+div[data-testid="stExpander"] {
+  border-radius: var(--r-md) !important;
+  border: 1px solid var(--c-border) !important;
+  box-shadow: var(--sh-xs) !important;
+  background: var(--c-surface) !important;
+  margin-bottom: 8px !important;
+  overflow: hidden !important;
+}
+div[data-testid="stExpander"] summary {
+  font-size: .90rem !important;
+  font-weight: 600 !important;
+  color: var(--c-txt) !important;
+  padding: 10px 14px !important;
+  background: var(--c-surface) !important;
+  min-height: 38px !important;
+}
+div[data-testid="stExpander"] summary:hover {
+  background: var(--c-primary-soft) !important;
+}
 
-    /* ═══════════════════════ 모바일 반응형 ═══════════════════════ */
+/* 탭 */
+.stTabs [data-baseweb="tab-list"] {
+  gap: 4px !important;
+  border-bottom: 2px solid var(--c-border) !important;
+  background: transparent !important;
+}
+.stTabs [data-baseweb="tab"] {
+  font-size: .92rem !important;
+  font-weight: 600 !important;
+  padding: 8px 18px !important;
+  border-radius: var(--r-sm) var(--r-sm) 0 0 !important;
+  color: var(--c-txt-sub) !important;
+  border: none !important;
+  background: transparent !important;
+  transition: var(--tr) !important;
+}
+.stTabs [aria-selected="true"] {
+  color: var(--c-primary) !important;
+  background: var(--c-primary-soft) !important;
+  border-bottom: 2px solid var(--c-primary) !important;
+}
 
-    /* 모바일 (768px 이하) 전용 */
-    @media (max-width: 768px) {
+/* ── 메인 버튼 공통 ── */
+.stButton button {
+  border-radius: var(--r-md) !important;
+  font-weight: 600 !important;
+  font-size: .90rem !important;
+  transition: var(--tr) !important;
+  border: 1.5px solid var(--c-border) !important;
+  background: var(--c-surface) !important;
+  color: var(--c-txt-sub) !important;
+  padding: 6px 16px !important;
+  min-height: 36px !important;
+  box-shadow: var(--sh-xs) !important;
+}
+.stButton button:hover {
+  border-color: var(--c-primary-mid) !important;
+  color: var(--c-primary) !important;
+  background: var(--c-primary-soft) !important;
+  box-shadow: 0 3px 12px rgba(37,99,235,.12) !important;
+}
 
-        /* 사이드바 너비: 화면의 88% (남은 12%에 콘텐츠 보임) */
-        [data-testid="stSidebar"] {
-            min-width: 88vw !important;
-            max-width: 88vw !important;
-        }
+/* ── 메인 입력 필드 ── */
+.stTextInput input, .stTextArea textarea {
+  border-radius: var(--r-md) !important;
+  border: 1.5px solid var(--c-border) !important;
+  font-size: .92rem !important;
+  padding: 8px 12px !important;
+  transition: var(--tr) !important;
+  background: var(--c-surface) !important;
+}
+.stTextInput input:focus, .stTextArea textarea:focus {
+  border-color: var(--c-primary) !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12) !important;
+}
 
-        /* 메인 콘텐츠 여백 축소 */
-        .main .block-container {
-            padding-left: 0.8rem !important;
-            padding-right: 0.8rem !important;
-            padding-top: 0.8rem !important;
-        }
+/* ── 셀렉트박스 ── */
+.stSelectbox > div > div {
+  border-radius: var(--r-md) !important;
+  border: 1.5px solid var(--c-border) !important;
+  font-size: .90rem !important;
+}
 
-        /* 헤더 텍스트 모바일 크기 조정 */
-        .main-header h1 { font-size: 1.3rem !important; }
-        .main-header p  { font-size: 0.82rem !important; }
+/* ── 핫 서브토픽 버튼 ── */
+.hot-topic-btn .stButton button {
+  background: linear-gradient(135deg,#f97316,#ea580c) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 16px !important;
+  font-size: .84rem !important;
+  padding: 5px 12px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 8px rgba(249,115,22,.30) !important;
+}
+.hot-topic-btn .stButton button:hover {
+  background: linear-gradient(135deg,#ea580c,#c2410c) !important;
+  box-shadow: 0 4px 14px rgba(249,115,22,.45) !important;
+  transform: translateY(-1px) !important;
+}
 
-        /* 탭 텍스트 작게 */
-        .stTabs [data-baseweb="tab"] { font-size: 0.78rem !important; padding: 6px 8px !important; }
-    }
+/* ══════════════════════════════════════════════════════════════
+   Material Icons 텍스트 렌더링 수정 (expander 화살표만 숨김)
+══════════════════════════════════════════════════════════════ */
 
+/* Expander 화살표 텍스트만 숨김 (토글 버튼 제외) */
+[data-testid="stExpander"] summary span[data-testid="stIconMaterial"],
+details summary [data-testid="stIconMaterial"] {
+  font-size: 0 !important;
+  line-height: 0 !important;
+  overflow: hidden !important;
+  max-width: 0 !important;
+  opacity: 0 !important;
+  position: absolute !important;
+}
+
+/* Material Symbols 폰트 설정 (expander 내부만, 토글 버튼 제외) */
+[data-testid="stExpander"] span[data-testid="stIconMaterial"] {
+  font-family: "Material Symbols Rounded", "Material Icons" !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   사이드바 토글 버튼 (열림 << / 닫힘 >>)
+   Streamlit 1.55+ 실제 DOM: stSidebarCollapseButton + stSidebarCollapsedControl
+══════════════════════════════════════════════════════════════ */
+
+/* ── 열린 상태: 닫기 버튼 (<<)
+   DOM: stSidebarHeader > stSidebarCollapseButton > button[kind=headerNoPadding]
+   JS에서 showSidebarCollapse=false 일 때 visibility:hidden → !important 로 강제 표시 ── */
+[data-testid="stSidebarCollapseButton"] {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+  align-items: center !important;
+  margin-left: 4px !important;
+}
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="stSidebarCollapseButton"] [data-testid="stBaseButton-headerNoPadding"] {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(37,99,235,.10) !important;
+  border: 1.5px solid rgba(37,99,235,.25) !important;
+  border-radius: 8px !important;
+  padding: 5px 8px !important;
+  cursor: pointer !important;
+  color: #2563eb !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  transition: background .15s ease, box-shadow .15s ease !important;
+  position: relative !important;
+  z-index: 9999 !important;
+}
+[data-testid="stSidebarCollapseButton"] button:hover,
+[data-testid="stSidebarCollapseButton"] [data-testid="stBaseButton-headerNoPadding"]:hover {
+  background: rgba(37,99,235,.20) !important;
+  box-shadow: 0 2px 8px rgba(37,99,235,.25) !important;
+}
+/* 닫기 버튼 내부 아이콘 (SVG/span) */
+[data-testid="stSidebarCollapseButton"] button svg,
+[data-testid="stSidebarCollapseButton"] [data-testid="stBaseButton-headerNoPadding"] svg {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  width: 20px !important;
+  height: 20px !important;
+  color: inherit !important;
+  fill: currentColor !important;
+}
+[data-testid="stSidebarCollapseButton"] button span,
+[data-testid="stSidebarCollapseButton"] [data-testid="stBaseButton-headerNoPadding"] span {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: inline-block !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+}
+
+/* ── stSidebarHeader 레이아웃 (버튼 오른쪽 정렬) ── */
+[data-testid="stSidebarHeader"] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  padding: 4px 8px !important;
+  min-height: 36px !important;
+}
+
+/* ── 닫힌 상태: 열기 버튼 (>>)
+   DOM: div[data-testid="stSidebarCollapsedControl"] > button ── */
+[data-testid="stSidebarCollapsedControl"] {
+  position: fixed !important;
+  top: 50% !important;
+  left: 0 !important;
+  transform: translateY(-50%) !important;
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+[data-testid="stSidebarCollapsedControl"] button {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #ffffff !important;
+  border: 1.5px solid #bfdbfe !important;
+  border-left: none !important;
+  border-radius: 0 10px 10px 0 !important;
+  padding: 14px 8px !important;
+  box-shadow: 3px 0 14px rgba(37,99,235,.20) !important;
+  cursor: pointer !important;
+  color: #2563eb !important;
+  min-width: 30px !important;
+  min-height: 50px !important;
+  transition: background .15s ease, box-shadow .15s ease !important;
+  z-index: 99999 !important;
+}
+[data-testid="stSidebarCollapsedControl"] button:hover {
+  background: #eff6ff !important;
+  box-shadow: 3px 0 22px rgba(37,99,235,.30) !important;
+  color: #1d4ed8 !important;
+}
+/* 열기 버튼 내부 아이콘 */
+[data-testid="stSidebarCollapsedControl"] button svg {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  width: 20px !important;
+  height: 20px !important;
+  color: inherit !important;
+  fill: currentColor !important;
+}
+[data-testid="stSidebarCollapsedControl"] button span {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: inline-block !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+}
+
+/* ── 아이콘 폰트 공통 설정 ── */
+[data-testid="stSidebarCollapseButton"] span[data-testid="stIconMaterial"],
+[data-testid="stSidebarCollapsedControl"] span[data-testid="stIconMaterial"],
+[data-testid="stSidebarCollapseButton"] .e14lo0b10,
+[data-testid="stSidebarCollapsedControl"] .e14lo0b10 {
+  font-family: "Material Symbols Rounded", "Material Icons", sans-serif !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-feature-settings: 'liga' !important;
+  -webkit-font-smoothing: antialiased !important;
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+  color: inherit !important;
+  overflow: visible !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  position: static !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   사이드바 — 모던 클린 디자인
+══════════════════════════════════════════════════════════════ */
+[data-testid="stSidebar"] {
+  overflow-y: auto !important;
+  background: #f5f8ff !important;
+  border-right: 1px solid #dde5f5 !important;
+}
+[data-testid="stSidebar"] > div:first-child {
+  padding: 0.8rem 0.9rem 1.4rem 0.9rem !important;
+}
+[data-testid="stSidebar"] * {
+  font-family: "Noto Sans KR", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: .85rem !important;
+  letter-spacing: -.01em;
+}
+[data-testid="stSidebar"] hr {
+  margin: 9px 0 !important;
+  border: none !important;
+  border-top: 1px solid #dde5f5 !important;
+}
+
+/* ── 사이드바 헤딩 ── */
+[data-testid="stSidebar"] h2 {
+  font-size: .78rem !important;
+  font-weight: 700 !important;
+  color: var(--c-txt-mute) !important;
+  text-transform: uppercase !important;
+  letter-spacing: .07em !important;
+  margin: 14px 0 5px 0 !important;
+}
+[data-testid="stSidebar"] h3 {
+  font-size: .74rem !important;
+  font-weight: 700 !important;
+  color: var(--c-txt-mute) !important;
+  text-transform: uppercase !important;
+  letter-spacing: .06em !important;
+  margin: 9px 0 4px 0 !important;
+}
+
+/* ── 사이드바 텍스트 ── */
+[data-testid="stSidebar"] p {
+  margin: 0 !important;
+  line-height: 1.48 !important;
+  font-size: .86rem !important;
+  color: var(--c-txt-sub) !important;
+}
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"],
+[data-testid="stSidebar"] [data-baseweb="form-control-label"],
+[data-testid="stSidebar"] .stRadio > div > label,
+[data-testid="stSidebar"] .stCheckbox > div > label,
+[data-testid="stSidebar"] [class*="label"],
+[data-testid="stSidebar"] [class*="Label"] {
+  font-size: .83rem !important;
+  font-weight: 600 !important;
+  color: var(--c-txt-sub) !important;
+  margin-bottom: 4px !important;
+}
+[data-testid="stSidebar"] .stCaption,
+[data-testid="stSidebar"] small,
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {
+  font-size: .68rem !important;
+  line-height: 1.5 !important;
+  color: var(--c-txt-mute) !important;
+}
+
+/* ── 사이드바 입력 ── */
+[data-testid="stSidebar"] .stTextInput,
+[data-testid="stSidebar"] .stTextArea,
+[data-testid="stSidebar"] .stSelectbox,
+[data-testid="stSidebar"] .stSlider,
+[data-testid="stSidebar"] .stCheckbox,
+[data-testid="stSidebar"] .stRadio {
+  margin-bottom: 4px !important;
+}
+[data-testid="stSidebar"] .stTextInput input {
+  font-size: .86rem !important;
+  border-radius: var(--r-md) !important;
+  border: 1.5px solid #dde5f5 !important;
+  background: #fff !important;
+  padding: 7px 12px !important;
+  color: var(--c-txt) !important;
+  box-shadow: var(--sh-xs) !important;
+  transition: var(--tr) !important;
+}
+[data-testid="stSidebar"] .stTextInput input:focus {
+  border-color: var(--c-primary) !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12) !important;
+}
+[data-testid="stSidebar"] .stTextArea textarea {
+  font-size: .86rem !important;
+  min-height: 60px !important;
+  border-radius: var(--r-md) !important;
+  border: 1.5px solid #dde5f5 !important;
+  background: #fff !important;
+  color: var(--c-txt) !important;
+  box-shadow: var(--sh-xs) !important;
+}
+[data-testid="stSidebar"] .stSelectbox > div > div {
+  font-size: .86rem !important;
+  border-radius: var(--r-md) !important;
+  border: 1.5px solid #dde5f5 !important;
+  background: #fff !important;
+  box-shadow: var(--sh-xs) !important;
+}
+[data-testid="stSidebar"] .stRadio label,
+[data-testid="stSidebar"] .stCheckbox label {
+  font-size: .83rem !important;
+  color: var(--c-txt-sub) !important;
+  font-weight: 500 !important;
+}
+
+/* ── element-container 간격 ── */
+[data-testid="stSidebar"] .element-container {
+  margin-bottom: 3px !important;
+  padding-bottom: 0 !important;
+}
+
+/* ── 사이드바 일반 버튼 ── */
+[data-testid="stSidebar"] .stButton {
+  margin-top: 2px !important;
+  margin-bottom: 2px !important;
+}
+[data-testid="stSidebar"] .stButton button {
+  font-size: .83rem !important;
+  font-weight: 600 !important;
+  padding: 5px 12px !important;
+  min-height: 32px !important;
+  height: auto !important;
+  border-radius: var(--r-md) !important;
+  border: 1.5px solid #dde5f5 !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+  transition: var(--tr) !important;
+  white-space: nowrap !important;
+  box-shadow: var(--sh-xs) !important;
+}
+[data-testid="stSidebar"] .stButton button:hover {
+  background: var(--c-primary-soft) !important;
+  border-color: var(--c-primary-mid) !important;
+  color: var(--c-primary) !important;
+  box-shadow: 0 2px 10px rgba(37,99,235,.13) !important;
+}
+
+/* ── 검색 시작 버튼 (Primary) ── */
+[data-testid="stSidebar"] .stButton button[kind="primary"],
+[data-testid="stSidebar"] .stButton button[data-testid="baseButton-primary"] {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-size: 1.10rem !important;
+  font-weight: 700 !important;
+  padding: 11px 18px !important;
+  min-height: 44px !important;
+  border-radius: var(--r-md) !important;
+  box-shadow: 0 4px 16px rgba(37,99,235,.38) !important;
+  letter-spacing: .01em !important;
+}
+[data-testid="stSidebar"] .stButton button[kind="primary"] p,
+[data-testid="stSidebar"] .stButton button[data-testid="baseButton-primary"] p,
+[data-testid="stSidebar"] .stButton button[kind="primary"] span,
+[data-testid="stSidebar"] .stButton button[data-testid="baseButton-primary"] span {
+  color: #ffffff !important;
+  font-size: 1.10rem !important;
+  font-weight: 700 !important;
+}
+[data-testid="stSidebar"] .stButton button[kind="primary"]:hover,
+[data-testid="stSidebar"] .stButton button[data-testid="baseButton-primary"]:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
+  box-shadow: 0 6px 22px rgba(37,99,235,.48) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ── 아이콘 소형 버튼 ── */
+[data-testid="stSidebar"] .stButton button[kind="secondary"] {
+  font-size: .83rem !important;
+  padding: 3px 6px !important;
+  min-height: 28px !important;
+}
+
+/* ── 다크모드 토글 버튼 ── */
+[data-testid="stSidebar"] .dark-mode-btn .stButton button {
+  font-size: .78rem !important;
+  padding: 3px 10px !important;
+  min-height: 26px !important;
+  border-radius: 20px !important;
+  font-weight: 700 !important;
+}
+
+/* ── 즐겨찾기 폴더 ── */
+[data-testid="stSidebar"] .fav-folder-header {
+  background: var(--c-primary-soft);
+  border: 1px solid var(--c-primary-mid);
+  border-radius: var(--r-md);
+  padding: 7px 12px;
+  margin: 6px 0 3px 0;
+}
+[data-testid="stSidebar"] .fav-folder-badge {
+  font-size: .71rem;
+  background: #dbeafe;
+  color: var(--c-primary-dark);
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+/* ── 최근 검색 기록 ── */
+[data-testid="stSidebar"] .hist-btn .stButton button {
+  font-size: .83rem !important;
+  padding: 4px 11px !important;
+  min-height: 28px !important;
+  border-radius: 14px !important;
+  background: var(--c-primary-soft) !important;
+  border-color: var(--c-primary-mid) !important;
+  color: var(--c-primary-dark) !important;
+  font-weight: 500 !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
+  box-shadow: none !important;
+}
+[data-testid="stSidebar"] .hist-btn .stButton button:hover {
+  background: #dbeafe !important;
+  border-color: #60a5fa !important;
+}
+
+/* ── 관련영상 link_button ── */
+[data-testid="stSidebar"] .stLinkButton a {
+  font-size: .83rem !important;
+  padding: 4px 6px !important;
+  min-height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: var(--r-md) !important;
+  border: 1.5px solid #dde5f5 !important;
+  background: #fff8f8 !important;
+  color: var(--c-danger) !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  transition: var(--tr) !important;
+}
+[data-testid="stSidebar"] .stLinkButton a:hover {
+  background: #fee2e2 !important;
+  border-color: #f87171 !important;
+}
+
+/* ── 선택박스 소형 ── */
+[data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] {
+  min-height: 30px !important;
+  font-size: .84rem !important;
+}
+
+/* ── 사이드바 Expander ── */
+[data-testid="stSidebar"] [data-testid="stExpander"] {
+  margin-bottom: 5px !important;
+  border-radius: var(--r-md) !important;
+  border: 1.5px solid #dde5f5 !important;
+  background: #ffffff !important;
+  overflow: hidden !important;
+  box-shadow: var(--sh-xs) !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+  padding: 7px 13px !important;
+  font-size: .85rem !important;
+  font-weight: 700 !important;
+  min-height: 34px !important;
+  color: #334155 !important;
+  background: #ffffff !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {
+  background: var(--c-primary-soft) !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] > div:last-child {
+  background: #f8faff !important;
+  padding: 8px 11px !important;
+}
+
+/* ── Secrets 로드 현황 expander 내부 글자 크기 축소 ── */
+[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stCaptionContainer"],
+[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stCaptionContainer"] p,
+[data-testid="stSidebar"] [data-testid="stExpander"] .stCaption,
+[data-testid="stSidebar"] [data-testid="stExpander"] .stCaption p,
+[data-testid="stSidebar"] [data-testid="stExpander"] small {
+  font-size: .68rem !important;
+  line-height: 1.5 !important;
+  color: var(--c-txt-mute) !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stAlert"] p,
+[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stAlert"] {
+  font-size: .68rem !important;
+  line-height: 1.5 !important;
+  padding: 6px 10px !important;
+}
+/* success/info 박스 (Google Sheets 자동 로드 완료 등) */
+[data-testid="stSidebar"] [data-testid="stAlert"][data-baseweb="notification"] p,
+[data-testid="stSidebar"] [data-testid="stAlert"][data-baseweb="notification"] {
+  font-size: .68rem !important;
+  line-height: 1.5 !important;
+}
+/* st.success, st.info 공통 */
+[data-testid="stSidebar"] .stSuccess p,
+[data-testid="stSidebar"] .stInfo p,
+[data-testid="stSidebar"] .stSuccess,
+[data-testid="stSidebar"] .stInfo {
+  font-size: .68rem !important;
+  line-height: 1.5 !important;
+  padding: 5px 10px !important;
+}
+
+
+
+/* ── 사이드바 multiselect ── */
+[data-testid="stSidebar"] .stMultiSelect > div > div {
+    border-radius: var(--r-md) !important;
+    border: 1.5px solid #dde5f5 !important;
+    background: #fff !important;
+    font-size: .85rem !important;
+    box-shadow: var(--sh-xs) !important;
+}
+[data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] {
+    background: var(--c-primary-soft) !important;
+    border: 1px solid var(--c-primary-mid) !important;
+    border-radius: 14px !important;
+    color: var(--c-primary-dark) !important;
+    font-size: .78rem !important;
+    font-weight: 600 !important;
+    padding: 2px 8px !important;
+}
+[data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] span {
+    color: var(--c-primary-dark) !important;
+}
+[data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] button {
+    color: var(--c-primary) !important;
+    background: transparent !important;
+    border: none !important;
+    min-height: unset !important;
+    box-shadow: none !important;
+    padding: 0 2px !important;
+}
+/* 다크모드 multiselect */
+
+
+/* ── 액션 버튼 색상 — 목록 지우기(danger) / 구글시트 내보내기(success) ── */
+[data-testid="stSidebar"] .btn-danger .stButton button {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-size: .65rem !important;
+  font-weight: 700 !important;
+  padding: 5px 6px !important;
+  min-height: 30px !important;
+  height: auto !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(239,68,68,.30) !important;
+  transition: all .15s ease !important;
+  letter-spacing: 0 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  line-height: 1.3 !important;
+  width: 100% !important;
+}
+[data-testid="stSidebar"] .btn-danger .stButton button:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  box-shadow: 0 4px 14px rgba(220,38,38,.40) !important;
+  transform: translateY(-1px) !important;
+}
+/* StyledEllipsizedDiv (Streamlit 내부 white-space:nowrap 강제 오버라이드) */
+[data-testid="stSidebar"] .btn-danger .stButton button > div,
+[data-testid="stSidebar"] .btn-danger .stButton button > div > div {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  display: block !important;
+  width: 100% !important;
+}
+[data-testid="stSidebar"] .btn-danger .stButton button p,
+[data-testid="stSidebar"] .btn-danger .stButton button span {
+  color: #ffffff !important;
+  font-size: .65rem !important;
+  font-weight: 700 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  display: inline !important;
+}
+
+[data-testid="stSidebar"] .btn-success .stButton button {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-size: .65rem !important;
+  font-weight: 700 !important;
+  padding: 5px 6px !important;
+  min-height: 30px !important;
+  height: auto !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(22,163,74,.30) !important;
+  transition: all .15s ease !important;
+  letter-spacing: 0 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  line-height: 1.3 !important;
+  width: 100% !important;
+}
+[data-testid="stSidebar"] .btn-success .stButton button:hover {
+  background: linear-gradient(135deg, #15803d 0%, #166534 100%) !important;
+  box-shadow: 0 4px 14px rgba(21,128,61,.40) !important;
+  transform: translateY(-1px) !important;
+}
+/* StyledEllipsizedDiv 오버라이드 */
+[data-testid="stSidebar"] .btn-success .stButton button > div,
+[data-testid="stSidebar"] .btn-success .stButton button > div > div {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  display: block !important;
+  width: 100% !important;
+}
+[data-testid="stSidebar"] .btn-success .stButton button p,
+[data-testid="stSidebar"] .btn-success .stButton button span {
+  color: #ffffff !important;
+  font-size: .65rem !important;
+  font-weight: 700 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  display: inline !important;
+}
+/* disabled 상태 */
+[data-testid="stSidebar"] .btn-success .stButton button:disabled,
+[data-testid="stSidebar"] .btn-success .stButton button[disabled] {
+  background: linear-gradient(135deg, #86efac 0%, #6ee7b7 100%) !important;
+  box-shadow: none !important;
+  opacity: .6 !important;
+  transform: none !important;
+  cursor: not-allowed !important;
+}
+
+/* ── 다크모드 액션 버튼 ── */
+/* ── 정렬 우선순위 버튼 (↑↓✕) ── */
+[data-testid="stSidebar"] .stButton button[kind="secondary"]:has(+ *),
+[data-testid="stSidebar"] .element-container:has(button) .stButton button {
+    min-height: 28px !important;
+    padding: 2px 5px !important;
+    font-size: .78rem !important;
+}
+/* 우선순위 번호 배지 행 여백 */
+[data-testid="stSidebar"] .sort-priority-row {
+    margin: 2px 0 !important;
+}
+/* ══════════════════════════════════════════════════════════════
+   반응형 레이아웃
+══════════════════════════════════════════════════════════════ */
+/* 넓은 데스크탑 */
+@media (min-width: 1400px) {
+  .main .block-container { max-width: 1440px !important; }
+}
+
+/* 태블릿 */
+@media (max-width: 1024px) {
+  .main .block-container { padding: 1rem 1.1rem 2rem 1.1rem !important; }
+  .main-header { padding: 20px 26px; }
+  .main-header h1 { font-size: 1.65rem; }
+}
+
+/* 모바일 */
+@media (max-width: 768px) {
+  .main .block-container { padding: .8rem .8rem 2rem .8rem !important; }
+  .main-header { padding: 16px 18px; border-radius: var(--r-lg); margin-bottom: 16px; }
+  .main-header h1 { font-size: 1.3rem !important; }
+  .main-header p  { font-size: .86rem !important; }
+  .video-card { padding: 14px 15px; border-radius: var(--r-md); }
+  .video-title { font-size: .96rem; }
+  .metric-card { padding: 14px 15px; }
+  .metric-card .value { font-size: 1.55rem; }
+  .stTabs [data-baseweb="tab"] { font-size: .83rem !important; padding: 6px 11px !important; }
+  [data-testid="stSidebar"] { min-width: 90vw !important; max-width: 90vw !important; }
+  .stat-row { gap: 7px; }
+  .stat-item { font-size: .79rem; padding: 3px 9px; }
+  .section-title { font-size: .98rem; }
+}
+
+/* 소형 모바일 */
+@media (max-width: 480px) {
+  .main-header h1 { font-size: 1.1rem !important; }
+  .main .block-container { padding: .5rem .5rem 2rem .5rem !important; }
+  .metric-card .value { font-size: 1.35rem; }
+}
 
 </style>
+
 """, unsafe_allow_html=True)
 
+
+
+# ── 다크모드 차트 팔레트 헬퍼 ────────────────────────────────────
+def _chart_palette(dark: bool = False) -> dict:
+    """다크/라이트 모드에 따른 차트 색상 팔레트 반환"""
+    if dark:
+        return {
+            "bg":          "#1e2038",   # 카드 배경
+            "card_border": "#2e3157",
+            "grid":        "#2d3060",   # 그리드 라인
+            "grid_text":   "#4a5080",   # 그리드 수치 텍스트
+            "x_label":     "#5a6090",   # X축 날짜 레이블
+            "rise":        "#ff6b6b",   # 상승 (밝은 레드)
+            "fall":        "#69db7c",   # 하락 (밝은 그린)
+            "flat":        "#ffa94d",   # 보합 (밝은 오렌지)
+            "bar_default": "#3d5a80",   # 기본 막대
+            "circle_stroke":"#1e2038", # 원 테두리
+            "summary_bg":  "#252640",
+            "summary_text":"#8890b0",
+            "summary_val": "#c5c8e0",
+            "sparkline_bg":"#181929",
+            "sparkline_border":"#2e3157",
+            "sparkline_label":"#6a70a0",
+            "area_opacity_hi": "0.30",
+            "area_opacity_lo": "0.03",
+        }
+    else:
+        return {
+            "bg":          "#ffffff",
+            "card_border": "#bfdbfe",
+            "grid":        "#eeeeee",
+            "grid_text":   "#cccccc",
+            "x_label":     "#aaaaaa",
+            "rise":        "#E53935",
+            "fall":        "#4CAF50",
+            "flat":        "#FF9800",
+            "bar_default": "#90CAF9",
+            "circle_stroke":"#ffffff",
+            "summary_bg":  "#f5f5f5",
+            "summary_text":"#888888",
+            "summary_val": "#333333",
+            "sparkline_bg":"#f7f8ff",
+            "sparkline_border":"#e8ecff",
+            "sparkline_label":"#aaaaaa",
+            "area_opacity_hi": "0.18",
+            "area_opacity_lo": "0.02",
+        }
+
+
+# ── 다크모드 CSS 동적 적용 ──────────────────────────────────
+if st.session_state.get("dark_mode", False):
+    st.markdown("""<style>
+    /* ════ 다크모드 전체 테마 ════ */
+    .stApp, .main, [data-testid="stAppViewContainer"] {
+        background-color: #0c0e18 !important;
+        color: #e8eaf6 !important;
+    }
+    .main .block-container { background-color: #0c0e18 !important; }
+
+    /* ── 사이드바 다크 ── */
+    [data-testid="stSidebar"] {
+        background: #13152a !important;
+        border-right-color: #1e2140 !important;
+    }
+    [data-testid="stSidebar"] * { color: #c5c8e0 !important; }
+    [data-testid="stSidebar"] .stTextInput input,
+    [data-testid="stSidebar"] .stTextArea textarea,
+    [data-testid="stSidebar"] .stSelectbox > div > div {
+        background: #1e2038 !important;
+        border-color: #2e3157 !important;
+        color: #e0e2f5 !important;
+    }
+    [data-testid="stSidebar"] .stButton button {
+        background: #1e2038 !important;
+        border-color: #2e3157 !important;
+        color: #c5c8e0 !important;
+    }
+    [data-testid="stSidebar"] .stButton button:hover {
+        background: #252646 !important;
+        border-color: #5c6ef5 !important;
+        color: #aab0ff !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stExpander"] {
+        background: #1a1c30 !important;
+        border-color: #2a2e52 !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary {
+        background: #1a1c30 !important;
+        color: #c5c8e0 !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stExpander"] > div:last-child {
+        background: #13152a !important;
+    }
+    /* 검색 시작 버튼 다크 */
+    [data-testid="stSidebar"] .stButton button[kind="primary"],
+    [data-testid="stSidebar"] .stButton button[data-testid="baseButton-primary"] {
+        color: #ffffff !important;
+        background: linear-gradient(135deg,#4f7ef8,#3a5bd4) !important;
+        border: none !important;
+    }
+    [data-testid="stSidebar"] .stButton button[kind="primary"] p,
+    [data-testid="stSidebar"] .stButton button[kind="primary"] span,
+    [data-testid="stSidebar"] .stButton button[data-testid="baseButton-primary"] p,
+    [data-testid="stSidebar"] .stButton button[data-testid="baseButton-primary"] span {
+        color: #ffffff !important;
+    }
+    /* 최근검색 */
+    [data-testid="stSidebar"] .hist-btn .stButton button {
+        background: #252640 !important;
+        border-color: #3a3d5c !important;
+        color: #8a90c8 !important;
+    }
+    /* link_button 다크 */
+    [data-testid="stSidebar"] .stLinkButton a {
+        background: #1e2038 !important;
+        border-color: #3a3d5c !important;
+        color: #ff8a80 !important;
+    }
+    [data-testid="stSidebar"] .stLinkButton a:hover {
+        background: #2a2440 !important;
+        border-color: #e53935 !important;
+    }
+    /* ── 메인 콘텐츠 다크 ── */
+    .video-card {
+        background: #15172a !important;
+        border-color: #252840 !important;
+        color: #e0e2f5 !important;
+    }
+    .video-card:hover { border-color: #3a3e68 !important; }
+    .metric-card {
+        background: #15172a !important;
+        border-color: #252840 !important;
+    }
+    .metric-card .value { color: #7c9ef8 !important; }
+    .metric-card .label { color: #8a90b0 !important; }
+    .video-title  { color: #e8eaf6 !important; }
+    .video-meta   { color: #8a90b0 !important; }
+    .stat-item    { background: #1e2038 !important; color: #b0b8d0 !important; }
+    .transcript-box {
+        background: #15172a !important;
+        border-color: #252840 !important;
+        color: #c5c8e0 !important;
+    }
+    .section-title { color: #7c9ef8 !important; border-color: #5c6ef5 !important; }
+    /* ── 탭 다크 ── */
+    .stTabs [data-baseweb="tab-list"] { background: #13152a !important; border-color: #252840 !important; }
+    .stTabs [data-baseweb="tab"]       { color: #8a90b0 !important; }
+    .stTabs [aria-selected="true"]     { color: #7c9ef8 !important; background: #1e2038 !important; border-color: #5c6ef5 !important; }
+    /* ── 입력 필드 메인 ── */
+    .stTextInput input, .stTextArea textarea, .stSelectbox > div > div {
+        background: #15172a !important;
+        border-color: #252840 !important;
+        color: #e0e2f5 !important;
+    }
+    /* ── Expander 메인 ── */
+    div[data-testid="stExpander"] {
+        border-color: #252840 !important;
+        background: #15172a !important;
+    }
+    div[data-testid="stExpander"] summary {
+        background: #15172a !important;
+        color: #c5c8e0 !important;
+    }
+    div[data-testid="stExpander"] summary:hover { background: #1e2038 !important; }
+    /* ── 기타 ── */
+    .stCheckbox label, .stRadio label { color: #c5c8e0 !important; }
+    hr { border-color: #252840 !important; }
+    .dm-chart-wrap { background: #1e2038 !important; border-color: #2e3157 !important; }
+
+    /* 다크모드 multiselect */
+    [data-testid="stSidebar"] .stMultiSelect > div > div {
+        background: #1e2038 !important;
+        border-color: #2e3157 !important;
+        color: #e0e2f5 !important;
+    }
+    [data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] {
+        background: #252640 !important;
+        border-color: #3a3d5c !important;
+        color: #aab0ff !important;
+    }
+    [data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] span {
+        color: #aab0ff !important;
+    }
+    /* ── 다크모드 토글 버튼 (>> <<) ── */
+    /* 닫기 버튼(<<) 컨테이너 강제 표시 - 다크모드 */
+    [data-testid="stSidebarCollapseButton"] {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    /* 닫기 버튼(<<) 스타일 - 다크모드 */
+    [data-testid="stSidebarCollapseButton"] button,
+    [data-testid="stSidebarCollapseButton"] [data-testid="stBaseButton-headerNoPadding"] {
+        background: rgba(138,144,200,.15) !important;
+        border: 1.5px solid rgba(138,144,200,.30) !important;
+        color: #aab0ff !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    [data-testid="stSidebarCollapseButton"] button:hover,
+    [data-testid="stSidebarCollapseButton"] [data-testid="stBaseButton-headerNoPadding"]:hover {
+        background: rgba(138,144,200,.28) !important;
+        color: #c5c8ff !important;
+    }
+    /* 아이콘 색상 - 다크모드 */
+    [data-testid="stSidebarCollapseButton"] span,
+    [data-testid="stSidebarCollapseButton"] svg,
+    [data-testid="stSidebarCollapsedControl"] span[data-testid="stIconMaterial"] {
+        color: #aab0ff !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    /* 열기 버튼(>>) 스타일 - 다크모드 */
+    [data-testid="stSidebarCollapsedControl"] button {
+        background: #1e2038 !important;
+        border-color: #3a3d5c !important;
+        color: #aab0ff !important;
+        box-shadow: 3px 0 12px rgba(0,0,0,.40) !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] button:hover {
+        background: #252640 !important;
+        color: #c5c8ff !important;
+        box-shadow: 3px 0 20px rgba(79,126,248,.30) !important;
+    }
+        
+    /* 다크모드 액션 버튼 */
+    [data-testid="stSidebar"] .btn-danger .stButton button {
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+      box-shadow: 0 2px 8px rgba(220,38,38,.40) !important;
+    }
+    [data-testid="stSidebar"] .btn-danger .stButton button:hover {
+      background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
+      box-shadow: 0 4px 14px rgba(185,28,28,.50) !important;
+    }
+    [data-testid="stSidebar"] .btn-success .stButton button {
+      background: linear-gradient(135deg, #15803d 0%, #166534 100%) !important;
+      box-shadow: 0 2px 8px rgba(21,128,61,.40) !important;
+    }
+    [data-testid="stSidebar"] .btn-success .stButton button:hover {
+      background: linear-gradient(135deg, #166534 0%, #14532d 100%) !important;
+      box-shadow: 0 4px 14px rgba(20,83,45,.50) !important;
+    }
+</style>""", unsafe_allow_html=True)
 
 # ================================================================
 # 유틸 함수
@@ -406,7 +1492,7 @@ def get_badge(rank, view_count):
 # ================================================================
 # YouTube API 함수
 # ================================================================
-def search_youtube(api_key, keyword, max_r, order_api, video_type="전체"):
+def search_youtube(api_key, keyword, max_r, order_api, video_type="전체", published_after=None, dur_filter=None):
     video_ids = []
     token = None
     # 쇼츠 선택 시 API 레벨에서 4분 미만으로 pre-filter (API quota 절약)
@@ -423,6 +1509,10 @@ def search_youtube(api_key, keyword, max_r, order_api, video_type="전체"):
         }
         if video_type == "쇼츠":
             params["videoDuration"] = "short"   # 4분 미만 pre-filter
+        if dur_filter:
+            params["videoDuration"] = dur_filter  # any, short, medium, long
+        if published_after:
+            params["publishedAfter"] = published_after
         if token: params["pageToken"] = token
         try:
             r = requests.get(
@@ -539,7 +1629,10 @@ def get_hot_subtopics(api_key: str, main_keyword: str, top_n: int = 10):
                     "order": "relevance",
                     "regionCode": "KR",
                     "relevanceLanguage": "ko",
-                    "publishedAfter": "2024-01-01T00:00:00Z",
+                    "publishedAfter": (
+                        __import__('datetime').datetime.utcnow()
+                        - __import__('datetime').timedelta(days=730)
+                    ).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 },
                 timeout=10
             )
@@ -683,7 +1776,10 @@ def get_hot_subtopics(api_key: str, main_keyword: str, top_n: int = 10):
         return None, f"'{main_keyword}' 관련 서브 주제를 찾을 수 없습니다. API 키를 확인하거나 잠시 후 다시 시도하세요."
 
     # 최종 정렬 + 상위 N개 반환
-    results.sort(key=lambda x: x["score"], reverse=True)
+    try:
+        results.sort(key=lambda x: x.get("score", 0), reverse=True)
+    except Exception:
+        pass
     return results[:top_n], None
 
 
@@ -1989,10 +3085,90 @@ def main():
         st.markdown(html, unsafe_allow_html=True)
 
     # ================================================================
+    # ★ 사이드바 강제 열기 (최초 세션 시작 시)
+    #   브라우저 localStorage에 닫힌 상태가 저장돼 있어도 항상 열린 상태로 시작
+    # ================================================================
+    if "sidebar_initialized" not in st.session_state:
+        st.session_state["sidebar_initialized"] = True
+        import streamlit.components.v1 as _stc
+        _stc.html("""
+<script>
+(function() {
+    // 1단계: localStorage에서 사이드바 닫힘 기록 초기화
+    //        Streamlit은 stSidebarCollapsed-{id} 키로 상태 저장
+    try {
+        var lsKeys = Object.keys(window.parent.localStorage);
+        lsKeys.forEach(function(k) {
+            if (k.indexOf("stSidebarCollapsed") !== -1) {
+                window.parent.localStorage.setItem(k, "false");
+            }
+        });
+    } catch(e) {}
+
+    // 2단계: 버튼 직접 클릭 (최대 25회 재시도)
+    var _tries = 0;
+    var _iv = setInterval(function() {
+        _tries++;
+
+        // stExpandSidebarButton : Streamlit 1.55+ 실제 >> 버튼 testid
+        var expandBtn = window.parent.document.querySelector(
+            '[data-testid="stExpandSidebarButton"]'
+        );
+        if (expandBtn) {
+            expandBtn.click();
+            clearInterval(_iv);
+            return;
+        }
+
+        // 대체: stSidebarCollapsedControl 내 버튼
+        var collapsedCtrl = window.parent.document.querySelector(
+            '[data-testid="stSidebarCollapsedControl"] button'
+        );
+        if (collapsedCtrl) {
+            collapsedCtrl.click();
+            clearInterval(_iv);
+            return;
+        }
+
+        if (_tries >= 25) { clearInterval(_iv); }
+    }, 100);
+})();
+</script>
+""", height=0, width=0)
+
+    # ================================================================
     # 사이드바
     # ================================================================
     with st.sidebar:
-        st.markdown("## ⚙️ 검색 설정")
+        st.markdown(
+            "<div style='background:linear-gradient(135deg,#4f7ef8,#3a5bd4);"
+            "border-radius:10px;padding:10px 14px;margin:0 0 10px 0;"
+            "box-shadow:0 3px 10px rgba(79,126,248,0.20)'>"
+            "<span style='font-size:1.05rem;font-weight:800;color:#fff;"
+            "letter-spacing:-0.01em'>🎬 YouTube 분석 도구</span><br>"
+            "<span style='font-size:0.68rem;color:rgba(255,255,255,0.80);font-weight:400'>"
+            "검색 · 분석 · 내보내기</span></div>",
+            unsafe_allow_html=True
+        )
+
+        # ── 다크모드 토글 버튼 ──────────────────────────────
+        _dm_on = st.session_state.get("dark_mode", False)
+        _dm_c1, _dm_c2 = st.columns([3, 2])
+        with _dm_c1:
+            st.markdown(
+                "<span style='font-size:0.78rem;font-weight:600;color:" + ("#a0a8cc" if _dm_on else "#5c6480") + "'>"
+                + ("🌙 다크모드 ON" if _dm_on else "☀️ 라이트모드") + "</span>",
+                unsafe_allow_html=True
+            )
+        with _dm_c2:
+            if st.button(
+                "🌙 켜기" if not _dm_on else "☀️ 끄기",
+                key="btn_dark_mode_toggle",
+                use_container_width=True,
+                help="다크모드 전환"
+            ):
+                st.session_state["dark_mode"] = not _dm_on
+                st.rerun()
 
         # API 키: secrets.toml 에서 자동 로드
         api_key = st.text_input(
@@ -2003,10 +3179,66 @@ def main():
             help="Google Cloud Console에서 발급한 YouTube Data API v3 키를 입력하세요."
         )
         if _s_api_key:
-            st.caption("✅ secrets.toml 에서 API 키 자동 로드됨")
+            st.markdown(
+                "<div style='background:#ecfdf5;border:1px solid #86efac;"
+                "border-radius:6px;padding:3px 8px;margin-top:2px'>"
+                "<span style='font-size:0.66rem;color:#15803d;font-weight:600'>"
+                "✅ secrets.toml 자동 로드</span></div>",
+                unsafe_allow_html=True
+            )
 
         st.markdown('<hr style="margin:6px 0">', unsafe_allow_html=True)
-        st.markdown("### 🔍 검색 옵션")
+
+        # ── 최근 검색 기록 섹션 ─────────────────────────────────────
+        _hist_now = st.session_state.get("search_history", [])
+        if _hist_now:
+            _dm_hist = st.session_state.get("dark_mode", False)
+            _hist_bg      = "#1e2038" if _dm_hist else "#f8f9ff"
+            _hist_border  = "#2e3157" if _dm_hist else "#e4e8ff"
+            _hist_title_c = "#7c9ef8" if _dm_hist else "#4f7ef8"
+            _hist_chip_bg = "#252640" if _dm_hist else "#eef2ff"
+            _hist_chip_c  = "#a0aec0" if _dm_hist else "#5c72b0"
+            _hist_chip_ho = "#2e3157" if _dm_hist else "#dde6ff"
+            st.markdown(
+                f"<div style='display:flex;align-items:center;gap:6px;margin:6px 0 4px 0'>"
+                f"<div style='width:3px;height:14px;background:linear-gradient(180deg,#f59e0b,#f97316);"
+                f"border-radius:2px'></div>"
+                f"<span style='font-size:0.79rem;font-weight:700;color:{_hist_title_c};"
+                f"letter-spacing:0.03em'>🕐 최근 검색 기록</span>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+            for _hi, _hkw in enumerate(_hist_now):
+                _hist_short = _hkw[:22] + ("…" if len(_hkw) > 22 else "")
+                _hc1, _hc2 = st.columns([5, 1])
+                with _hc1:
+                    if st.button(
+                        f"🕐 {_hist_short}",
+                        key=f"hist_btn_{_hi}",
+                        use_container_width=True,
+                        help=f"'{_hkw}' 로 재검색"
+                    ):
+                        st.session_state["kw_input"] = _hkw
+                        st.rerun()
+                with _hc2:
+                    if st.button("✕", key=f"hist_del_{_hi}", help="기록 삭제"):
+                        _h2 = st.session_state.get("search_history", [])
+                        _h2 = [h for h in _h2 if h != _hkw]
+                        st.session_state["search_history"] = _h2
+                        st.rerun()
+            if st.button("🗑 기록 전체 삭제", key="btn_hist_clear", use_container_width=True):
+                st.session_state["search_history"] = []
+                st.rerun()
+            st.markdown('<hr style="margin:6px 0">', unsafe_allow_html=True)
+
+        st.markdown(
+            "<div style='display:flex;align-items:center;gap:6px;margin:8px 0 4px 0'>"
+            "<div style='width:3px;height:14px;background:linear-gradient(180deg,#4f7ef8,#a78bfa);"
+            "border-radius:2px'></div>"
+            "<span style='font-size:0.73rem;font-weight:700;color:#5c6480;"
+            "text-transform:uppercase;letter-spacing:0.05em'>🔍 검색 옵션</span></div>",
+            unsafe_allow_html=True
+        )
 
         # ── session_state 초기화 (키워드 입력창 + 서브 주제) ──────────────
         if "hot_topics" not in st.session_state:
@@ -2038,6 +3270,27 @@ def main():
         # 키워드 입력창 초기값 설정 (최초 1회만)
         if "kw_input" not in st.session_state:
             st.session_state["kw_input"] = _s_keywords or ""
+        if "dark_mode" not in st.session_state:
+            st.session_state["dark_mode"] = False
+        if "fav_order" not in st.session_state:
+            st.session_state["fav_order"] = []
+        if "search_history" not in st.session_state:
+            st.session_state["search_history"] = []  # 최근 검색어 리스트 (최대 5개)
+        # 폴더 관련 session_state
+        if "fav_folders" not in st.session_state:
+            # {"기본 폴더": ["topic1", "topic2", ...], "폴더2": [...]}
+            st.session_state["fav_folders"] = {"기본 폴더": []}
+        if "fav_folder_open" not in st.session_state:
+            # 각 폴더의 펼침 상태: {폴더명: bool}
+            st.session_state["fav_folder_open"] = {}
+        if "fav_folder_action" not in st.session_state:
+            st.session_state["fav_folder_action"] = ""   # "NEW_FOLDER","RENAME:old:new","DEL_FOLDER:name","MOVE:topic:folder"
+        if "fav_new_folder_mode" not in st.session_state:
+            st.session_state["fav_new_folder_mode"] = False
+        if "fav_rename_folder" not in st.session_state:
+            st.session_state["fav_rename_folder"] = ""   # 현재 이름 변경 중인 폴더명
+        if "fav_add_target_folder" not in st.session_state:
+            st.session_state["fav_add_target_folder"] = "기본 폴더"  # ADD 시 저장할 폴더
 
         # ★ 즐겨찾기 액션 처리
         _fav_action = st.session_state.pop("fav_action", "")
@@ -2048,6 +3301,14 @@ def main():
             if _fav_found:
                 _favs = st.session_state["favorites"]
                 if not any(f["topic"] == _fav_topic_key for f in _favs):
+                    # 저장할 폴더 결정
+                    _target_folder = st.session_state.get("fav_add_target_folder", "기본 폴더")
+                    # fav_folders에 폴더 없으면 생성
+                    _ff = st.session_state.setdefault("fav_folders", {"기본 폴더": []})
+                    if _target_folder not in _ff:
+                        _ff[_target_folder] = []
+                        st.session_state["fav_folders"] = _ff
+                    # favorites 리스트에 추가 (folder 필드 포함)
                     _favs.append({
                         "topic":     _fav_found["topic"],
                         "keyword":   st.session_state.get("hot_topics_kw", ""),
@@ -2058,13 +3319,79 @@ def main():
                         "score":     _fav_found.get("score", 0),
                         "raw_views": _fav_found.get("raw_views", 0),
                         "sparkline": _fav_found.get("sparkline", []),
+                        "folder":    _target_folder,
                     })
                     st.session_state["favorites"] = _favs
+                    # fav_folders에도 topic 등록
+                    _ff2 = st.session_state.get("fav_folders", {"기본 폴더": []})
+                    if _target_folder not in _ff2:
+                        _ff2[_target_folder] = []
+                    if _fav_topic_key not in _ff2[_target_folder]:
+                        _ff2[_target_folder].append(_fav_topic_key)
+                    st.session_state["fav_folders"] = _ff2
         elif _fav_action.startswith("DEL:"):
             _del_topic = _fav_action[4:]
+            # favorites 리스트에서 제거
             st.session_state["favorites"] = [
                 f for f in st.session_state["favorites"] if f["topic"] != _del_topic
             ]
+            # fav_folders에서도 제거
+            _ff3 = st.session_state.get("fav_folders", {})
+            for _fn in _ff3:
+                _ff3[_fn] = [t for t in _ff3[_fn] if t != _del_topic]
+            st.session_state["fav_folders"] = _ff3
+        elif _fav_action.startswith("MOVE:"):
+            # MOVE:topic:새폴더
+            _mv_parts = _fav_action[5:].split(":", 1)
+            if len(_mv_parts) == 2:
+                _mv_topic, _mv_dst = _mv_parts
+                # favorites에서 folder 필드 업데이트
+                _ff4 = st.session_state.get("fav_folders", {"기본 폴더": []})
+                if _mv_dst not in _ff4:
+                    _ff4[_mv_dst] = []
+                for _fitem in st.session_state.get("favorites", []):
+                    if _fitem["topic"] == _mv_topic:
+                        _old_folder = _fitem.get("folder", "기본 폴더")
+                        _fitem["folder"] = _mv_dst
+                        # 이전 폴더에서 제거, 새 폴더에 추가
+                        if _old_folder in _ff4 and _mv_topic in _ff4[_old_folder]:
+                            _ff4[_old_folder].remove(_mv_topic)
+                        if _mv_topic not in _ff4[_mv_dst]:
+                            _ff4[_mv_dst].append(_mv_topic)
+                st.session_state["fav_folders"] = _ff4
+        elif _fav_action.startswith("NEW_FOLDER:"):
+            _nf_name = _fav_action[11:].strip()
+            if _nf_name:
+                _ff5 = st.session_state.get("fav_folders", {"기본 폴더": []})
+                if _nf_name not in _ff5:
+                    _ff5[_nf_name] = []
+                st.session_state["fav_folders"] = _ff5
+        elif _fav_action.startswith("RENAME_FOLDER:"):
+            _rf_parts = _fav_action[14:].split(":", 1)
+            if len(_rf_parts) == 2:
+                _rf_old, _rf_new = _rf_parts
+                _rf_new = _rf_new.strip()
+                if _rf_new and _rf_old != _rf_new:
+                    _ff6 = st.session_state.get("fav_folders", {})
+                    # 새 폴더명으로 내용 이전
+                    _ff6[_rf_new] = _ff6.pop(_rf_old, [])
+                    st.session_state["fav_folders"] = _ff6
+                    # favorites의 folder 필드 업데이트
+                    for _fitem in st.session_state.get("favorites", []):
+                        if _fitem.get("folder") == _rf_old:
+                            _fitem["folder"] = _rf_new
+        elif _fav_action.startswith("DEL_FOLDER:"):
+            _df_name = _fav_action[11:]
+            if _df_name != "기본 폴더":
+                _ff7 = st.session_state.get("fav_folders", {})
+                _orphans = _ff7.pop(_df_name, [])
+                # 이 폴더 항목들을 기본 폴더로 이동
+                _ff7.setdefault("기본 폴더", []).extend(_orphans)
+                st.session_state["fav_folders"] = _ff7
+                # favorites의 folder 필드도 업데이트
+                for _fitem in st.session_state.get("favorites", []):
+                    if _fitem.get("folder") == _df_name:
+                        _fitem["folder"] = "기본 폴더"
 
         # ★ 서브 주제 클릭 처리 → text_area 렌더링 전에 실행해야 반영됨
         _clicked = st.session_state.pop("hot_topic_clicked", "")
@@ -2088,23 +3415,29 @@ def main():
         # ── 🔥 실시간 인기 서브 주제 추출 UI ─────────────────────────────
         _main_kw = keywords_input.split(",")[0].strip() if keywords_input else ""
 
-        # 헤더 + 추출 버튼
+        # ── 서브주제 추출 헤더 + 버튼 ──────────────────────────
         _col_hot1, _col_hot2 = st.columns([3, 1])
         with _col_hot1:
             if _main_kw:
                 st.markdown(
-                    f"<small style='color:#e55a2b;font-weight:600'>🔥 인기 서브 주제</small> "
-                    f"<small style='color:#888'>— <b>{_main_kw}</b> 관련 TOP 10</small>",
+                    f"<div style='display:flex;align-items:center;gap:5px;margin:4px 0 2px 0'>"
+                    f"<div style='width:3px;height:13px;background:linear-gradient(180deg,#ff6b35,#f7931e);"
+                    f"border-radius:2px'></div>"
+                    f"<span style='font-size:0.78rem;font-weight:700;color:#e55a2b'>🔥 인기 서브 주제</span>"
+                    f"<span style='font-size:0.68rem;color:#aaa;font-weight:400'>· {_main_kw}</span>"
+                    f"</div>",
                     unsafe_allow_html=True
                 )
             else:
                 st.markdown(
-                    "<small style='color:#aaa'>🔥 키워드 입력 후 인기 서브 주제를 추출하세요</small>",
+                    "<div style='font-size:0.70rem;color:#bbb;margin:4px 0 2px 0;"
+                    "display:flex;align-items:center;gap:4px'>"
+                    "<span>🔥</span><span>키워드 입력 후 서브 주제 추출</span></div>",
                     unsafe_allow_html=True
                 )
         with _col_hot2:
             _hot_btn = st.button(
-                "🔍 추출",
+                "추출",
                 key="btn_hot_topics",
                 disabled=not (_main_kw and api_key),
                 help="첫 번째 키워드로 실시간 인기 서브 주제 TOP 10을 추출합니다"
@@ -2112,9 +3445,14 @@ def main():
 
         if _hot_btn and _main_kw and api_key:
             with st.spinner(f"🔥 '{_main_kw}' 관련 인기 서브 주제 분석 중..."):
-                _topics, _err = get_hot_subtopics(api_key, _main_kw, top_n=10)
+                try:
+                    _topics, _err = get_hot_subtopics(api_key, _main_kw, top_n=10)
+                except Exception as _exc:
+                    _topics, _err = None, f"예기치 않은 오류: {_exc}"
             if _err:
                 st.error(f"서브 주제 추출 실패: {_err}")
+            elif not _topics:
+                st.warning("서브 주제를 찾지 못했습니다. API 키와 키워드를 확인해주세요.")
             else:
                 st.session_state["hot_topics"]    = _topics
                 st.session_state["hot_topics_kw"] = _main_kw
@@ -2139,17 +3477,23 @@ def main():
                 if _src_count.get("suggest"):  _src_labels.append(f"🔴실시간검색 {_src_count['suggest']}개")
                 if _src_count.get("trends"):   _src_labels.append(f"📈급상승트렌드 {_src_count['trends']}개")
 
-                st.markdown(
-                    f"<div style='background:#fff8f5;border-left:3px solid #ff6b35;"
-                    f"padding:6px 10px;border-radius:6px;margin:4px 0 8px 0;'>"
-                    f"<div style='font-size:0.78rem;font-weight:700;color:#e55a2b;margin-bottom:2px'>"
-                    f"📊 '{_topics_kw}' 관련 실시간 서브 주제 TOP {len(_topics_now)}</div>"
-                    f"<div style='font-size:0.68rem;color:#aaa'>"
-                    f"{'  ·  '.join(_src_labels)}</div>"
-                    f"<div style='font-size:0.66rem;color:#bbb;margin-top:2px'>클릭 → 검색창 자동입력</div>"
-                    f"</div>",
-                    unsafe_allow_html=True
+                # 출처 칩
+                _chip_html = "<div style='display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 8px 0'>"
+                _chip_colors = {"video":"#fff1ee:#e55a2b", "suggest":"#fff0f0:#d32f2f", "trends":"#eff6ff:#1565c0"}
+                for _src_k, _src_label in [("video","🔥 인기영상"), ("suggest","🔴 실시간"), ("trends","📈 급상승")]:
+                    if _src_count.get(_src_k):
+                        _cbg, _cfg = _chip_colors.get(_src_k, "#f5f5f5:#555").split(":")
+                        _chip_html += (
+                            f"<span style='background:{_cbg};color:{_cfg};font-size:0.62rem;"
+                            f"font-weight:700;padding:2px 7px;border-radius:10px;"
+                            f"border:1px solid {_cfg}22'>{_src_label} {_src_count[_src_k]}</span>"
+                        )
+                _chip_html += (
+                    "<span style='background:#f0f2fb;color:#8a93a8;font-size:0.60rem;"
+                    "padding:2px 7px;border-radius:10px;margin-left:auto'>"
+                    "클릭 → 검색창 입력</span></div>"
                 )
+                st.markdown(_chip_html, unsafe_allow_html=True)
 
                 # ── 세로 1열 카드 (인기도 숫자 + 바 한눈 비교) ─────────────
                 _cur_kws_check = [k.strip() for k in keywords_input.replace("，", ",").split(",") if k.strip()]
@@ -2191,16 +3535,16 @@ def main():
                         _hot_unit  = "인기"
                         _hot_color = "#555"
 
-                    # ── 순위별 좌측 컬러 바 색상 ──────────────────────────
+                    # ── 순위별 색상 (모던 블루 그라디언트) ─────────────────
                     _rank_color = (
-                        "#E53935" if _ti == 0 else
-                        "#F57C00" if _ti == 1 else
-                        "#795548" if _ti == 2 else
-                        "#1976D2" if _ti < 6 else
-                        "#546E7A" if _ti < 8 else "#90A4AE"
+                        "#4f7ef8" if _ti == 0 else
+                        "#7c5af8" if _ti == 1 else
+                        "#e55a2b" if _ti == 2 else
+                        "#3b82f6" if _ti < 6 else
+                        "#64748b" if _ti < 8 else "#94a3b8"
                     )
-                    _bg_color  = "#fff5f5" if _ti == 0 else ("#f0faf0" if _already_added else "#fafafa")
-                    _txt_color = "#2e7d32" if _already_added else "#222"
+                    _bg_color  = "#f5f7ff" if _ti == 0 else "#ffffff"
+                    _txt_color = "#2e7d32" if _already_added else "#2d3250"
 
                     # ── 날짜 / 채널 정보 ───────────────────────────────────
                     _date_str    = _t.get("date", "")
@@ -2212,29 +3556,40 @@ def main():
                     _sub_row  = (f"<div style='font-size:0.63rem;color:#aaa;margin-bottom:4px'>{_sub_html}</div>"
                                  if _sub_html else "")
 
-                    # ── 카드 HTML (변수 조합 후 전달) ────────────────────────
+                    # ── 카드 HTML (모던 재설계) ───────────────────────────
+                    _card_bg    = "#ffffff"
+                    _card_bd    = "#e8ebf5" if not _already_added else "#bbf7d0"
+                    _txt_color2 = "#2d3250" if not _already_added else "#15803d"
                     _html_card = (
-                        f"<div style='background:{_bg_color};border:1px solid #e0e0e0;"
+                        f"<div style='background:{_card_bg};"
+                        f"border:1.5px solid {_card_bd};"
                         f"border-radius:10px;padding:8px 10px 6px 10px;margin-bottom:5px;"
-                        f"border-left:4px solid {_rank_color};'>"
-                        # 1행: 순위 + 라벨뱃지 + 인기도 숫자 (오른쪽)
+                        f"border-left:4px solid {_rank_color};"
+                        f"box-shadow:0 1px 4px rgba(0,0,0,0.06);'>"
+                        # 1행: 순위뱃지 + 라벨 + 인기도 숫자
                         f"<div style='display:flex;justify-content:space-between;"
                         f"align-items:center;margin-bottom:4px'>"
-                        f"<span style='font-weight:900;color:{_rank_color};"
-                        f"font-size:0.78rem;min-width:22px'>#{_ti+1}</span>"
-                        f"<span style='font-size:0.63rem;background:#eeeeee;"
-                        f"padding:1px 6px;border-radius:8px;color:#777;"
-                        f"flex:1;margin:0 6px'>{_label_badge}</span>"
-                        f"<div style='text-align:right;line-height:1.1'>"
-                        f"<div style='font-size:1.05rem;font-weight:900;"
+                        f"<div style='display:flex;align-items:center;gap:5px;flex:1;min-width:0'>"
+                        f"<span style='background:{_rank_color};color:#fff;"
+                        f"font-weight:800;font-size:0.64rem;min-width:20px;height:20px;"
+                        f"border-radius:6px;display:flex;align-items:center;justify-content:center;"
+                        f"flex-shrink:0'>#{_ti+1}</span>"
+                        f"<span style='font-size:0.60rem;background:#f0f2fb;"
+                        f"padding:1px 6px;border-radius:6px;color:#8a93a8;"
+                        f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                        f"max-width:80px'>{_label_badge}</span>"
+                        f"</div>"
+                        f"<div style='text-align:right;line-height:1.1;flex-shrink:0'>"
+                        f"<div style='font-size:0.95rem;font-weight:800;"
                         f"color:{_hot_color};letter-spacing:-0.5px'>{_hot_num}</div>"
-                        f"<div style='font-size:0.58rem;color:#aaa'>{_hot_unit}</div>"
-                        f"</div>"
-                        f"</div>"
+                        f"<div style='font-size:0.55rem;color:#b0b8cc'>{_hot_unit}</div>"
+                        f"</div></div>"
                         # 2행: 제목
-                        f"<div style='font-size:0.84rem;font-weight:600;color:{_txt_color};"
-                        f"line-height:1.4;margin-bottom:3px'>"
-                        f"{'✓ ' if _already_added else ''}{_t['topic']}"
+                        f"<div style='font-size:0.81rem;font-weight:600;color:{_txt_color2};"
+                        f"line-height:1.4;margin-bottom:3px;"
+                        f"overflow:hidden;display:-webkit-box;"
+                        f"-webkit-line-clamp:2;-webkit-box-orient:vertical;'>"
+                        f"{'✅ ' if _already_added else ''}{_t['topic']}"
                         f"</div>"
                     )
                     # 3행: 날짜·채널 (있을 때만 추가)
@@ -2277,7 +3632,8 @@ def main():
                         _pts2.append((_sx2, _sy2, _sv2))
                     _polyline2 = " ".join(f"{x},{y}" for x,y,_ in _pts2)
                     _sp_trend2 = _sp_padded[-1] - _sp_padded[0]
-                    _sp_color2 = "#E53935" if _sp_trend2 > 5 else ("#4CAF50" if _sp_trend2 < -5 else "#FF9800")
+                    _sp_pal    = _chart_palette(st.session_state.get("dark_mode", False))
+                    _sp_color2 = _sp_pal["rise"] if _sp_trend2 > 5 else (_sp_pal["fall"] if _sp_trend2 < -5 else _sp_pal["flat"])
                     _sp_arrow2 = "▲" if _sp_trend2 > 5 else ("▼" if _sp_trend2 < -5 else "━")
                     # 그라디언트 fill 영역 (area chart)
                     _fill_pts  = f"8,{_H2-2} " + " ".join(f"{x},{y}" for x,y,_ in _pts2) + f" {_pts2[-1][0]},{_H2-2}"
@@ -2287,7 +3643,7 @@ def main():
                         _is_max = (_cv == _sp_max2)
                         _is_min = (_cv == _sp_min2)
                         _cr     = 3.5 if (_is_max or _is_min) else 2.5
-                        _cfill  = "#E53935" if _is_max else ("#4CAF50" if _is_min else _sp_color2)
+                        _cfill  = _sp_pal["rise"] if _is_max else (_sp_pal["fall"] if _is_min else _sp_color2)
                         # 수치 레이블 (최고/최저/마지막 포인트만 표시)
                         if _is_max or _is_min or _ci == _sp_n2 - 1:
                             _lbl_y  = _cy - 5 if _cy > 14 else _cy + 12
@@ -2303,12 +3659,14 @@ def main():
                     _xlabels_html = ""
                     for _xi, ((_xx, _xy, _), _dl) in enumerate(zip(_pts2, _date_labels)):
                         if _xi == 0 or _xi == 3 or _xi == 6:
-                            _xlabels_html += f"<text x='{_xx}' y='{_H2+1}' text-anchor='middle' font-size='6.5' fill='#aaa'>{_dl}</text>"
+                            _sp_xlabel_color = _sp_pal["x_label"]
+                            _xlabels_html += f"<text x='{_xx}' y='{_H2+1}' text-anchor='middle' font-size='6.5' fill='{_sp_xlabel_color}'>{_dl}</text>"
                     # 그리드라인 (수평 3개)
                     _grid_html = ""
                     for _gi in range(1, 4):
                         _gy = int(_H2 * _gi / 4)
-                        _grid_html += f"<line x1='8' y1='{_gy}' x2='{_W2-8}' y2='{_gy}' stroke='#f0f0f0' stroke-width='0.8'/>"
+                        _sp_grid_color = _sp_pal["grid"]
+                        _grid_html += f"<line x1='8' y1='{_gy}' x2='{_W2-8}' y2='{_gy}' stroke='{_sp_grid_color}' stroke-width='0.8'/>"
                     _svg_big = (
                         f"<svg width='{_W2}' height='{_H2+10}' style='overflow:visible'>"
                         f"<defs><linearGradient id='sg{_ti}' x1='0' y1='0' x2='0' y2='1'>"
@@ -2326,8 +3684,9 @@ def main():
 
                     # 스파크라인 행 (카드 하단 구분선 위에 삽입)
                     _sp_row_html = (
-                        f"<div style='margin-top:6px;padding-top:5px;border-top:1px solid #f0f0f0'>"
-                        f"<div style='font-size:0.6rem;color:#aaa;margin-bottom:2px'>📈 최근 7일 조회 추이</div>"
+                        f"<div style='margin-top:6px;padding-top:5px;"
+                        f"border-top:1px solid {_sp_pal['grid']};'>"
+                        f"<div style='font-size:0.6rem;color:{_sp_pal['sparkline_label']};margin-bottom:2px'>📈 최근 7일 조회 추이</div>"
                         f"<div style='overflow:hidden'>{_svg_big}</div>"
                         f"</div>"
                     )
@@ -2345,8 +3704,17 @@ def main():
                     _lbl_fav  = "★" if _is_fav else "☆"
                     _help_add = "이미 검색창에 추가됨" if _already_added else f"'{_t['topic']}' 검색창에 입력"
                     _help_fav = "즐겨찾기 해제" if _is_fav else "즐겨찾기에 저장"
+                    # 폴더 선택 (★ 버튼 옆 — 미즐겨찾기 상태일 때만)
+                    _folder_list = list(st.session_state.get("fav_folders", {"기본 폴더": []}).keys())
+                    if not _folder_list:
+                        _folder_list = ["기본 폴더"]
+                    _cur_target  = st.session_state.get("fav_add_target_folder", "기본 폴더")
+                    if _cur_target not in _folder_list:
+                        _cur_target = _folder_list[0]
 
-                    _btn_col1, _btn_col2, _btn_col3, _btn_col4 = st.columns([2, 1, 1, 1])
+                    _yt_url_q  = urllib.parse.quote(_t['topic'])
+                    _yt_url    = f"https://www.youtube.com/results?search_query={_yt_url_q}"
+                    _btn_col1, _btn_col2, _btn_col3, _btn_col4, _btn_col5 = st.columns([3, 1, 1, 1, 1])
                     with _btn_col1:
                         if st.button(
                             _lbl_add,
@@ -2386,6 +3754,13 @@ def main():
                                     )
                             st.rerun()
                     with _btn_col4:
+                        st.link_button(
+                            "📺",
+                            url=_yt_url,
+                            help=f"'{_t['topic']}' YouTube 검색 결과 새 탭에서 열기",
+                            use_container_width=True
+                        )
+                    with _btn_col5:
                         if st.button(
                             _lbl_fav,
                             key=f"fav_btn_{_ti}",
@@ -2397,16 +3772,35 @@ def main():
                             else:
                                 st.session_state["fav_action"] = f"ADD:{_t['topic']}"
                             st.rerun()
+                    # ── 폴더 선택 (미즐겨찾기 상태 + 폴더가 2개 이상일 때만 표시) ──
+                    if not _is_fav and len(_folder_list) > 1:
+                        _sel_folder = st.selectbox(
+                            "저장 폴더",
+                            options=_folder_list,
+                            index=_folder_list.index(_cur_target) if _cur_target in _folder_list else 0,
+                            key=f"folder_sel_{_ti}",
+                            label_visibility="collapsed",
+                            help="★ 버튼 클릭 시 저장될 폴더를 선택하세요"
+                        )
+                        if _sel_folder != st.session_state.get("fav_add_target_folder", "기본 폴더"):
+                            st.session_state["fav_add_target_folder"] = _sel_folder
+                            st.rerun()
 
                     # ── 인라인 검색 결과 패널 (해당 카드 바로 아래) ──────────
                     if _is_inline:
                         _isr = st.session_state.get("inline_search_results", [])
                         _panel_html = (
-                            f"<div style='background:#e8f4fd;border:1px solid #90caf9;"
+                            f"<div style='background:#f0f6ff;"
+                            f"border:1.5px solid #bfdbfe;"
                             f"border-radius:10px;padding:10px 12px;margin:4px 0 8px 0;"
-                            f"border-left:4px solid #1976D2;'>"
-                            f"<div style='font-size:0.72rem;font-weight:800;color:#1565C0;"
-                            f"margin-bottom:8px'>🔍 \''{_t['topic']}\'' 유튜브 검색 결과 TOP {len(_isr)}</div>"
+                            f"border-left:4px solid #4f7ef8;'>"
+                            f"<div style='display:flex;align-items:center;gap:5px;margin-bottom:8px'>"
+                            f"<span style='font-size:0.68rem;font-weight:800;color:#1d4ed8'>🔍 관련 영상</span>"
+                            f"<span style='font-size:0.63rem;color:#93c5fd;font-weight:400'>"
+                            f"· {_t['topic'][:20]}{'...' if len(_t['topic'])>20 else ''}</span>"
+                            f"<span style='margin-left:auto;font-size:0.58rem;background:#dbeafe;"
+                            f"color:#1d4ed8;padding:1px 6px;border-radius:8px'>TOP {len(_isr)}</span>"
+                            f"</div>"
                         )
                         if not _isr:
                             _panel_html += "<div style='color:#aaa;font-size:0.7rem'>API 키 필요 또는 결과 없음</div>"
@@ -2444,17 +3838,20 @@ def main():
                         st.markdown(_panel_html, unsafe_allow_html=True)
 
                 # ── 하단 액션 버튼 행 ─────────────────────────────────────
-                st.markdown("<div style='margin-top:8px'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
                 _act_c1, _act_c2 = st.columns(2)
                 with _act_c1:
+                    st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
                     if st.button("🗑️ 목록 지우기", key="btn_clear_hot", use_container_width=True):
                         st.session_state["hot_topics"]    = []
                         st.session_state["hot_topics_kw"] = ""
                         st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
                 with _act_c2:
                     _can_export = HAS_GSHEET and bool(_s_gcp_creds or False)
+                    st.markdown('<div class="btn-success">', unsafe_allow_html=True)
                     if st.button(
-                        "📊 구글시트 내보내기",
+                        "📊 시트 저장",
                         key="btn_export_subtopics",
                         use_container_width=True,
                         disabled=not _can_export,
@@ -2462,6 +3859,7 @@ def main():
                     ):
                         st.session_state["subtopic_export_trigger"] = True
                         st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
                 # ── 구글시트 내보내기 실행 ────────────────────────────────
                 if st.session_state.pop("subtopic_export_trigger", False):
@@ -2480,182 +3878,454 @@ def main():
                     else:
                         st.error(f"❌ 내보내기 실패: {_msg}")
 
-        # ── 즐겨찾기 목록 expander ──────────────────────────────────────
-        _favs_now = st.session_state.get("favorites", [])
-        if _favs_now:
-            _fav_label = f"⭐ 즐겨찾기 {len(_favs_now)}개 — 클릭하여 열기/접기"
-            with st.expander(_fav_label, expanded=st.session_state.get("fav_exp_open", False)):
-                # ── 정렬 선택 ─────────────────────────────────────────
-                _fsort_col1, _fsort_col2 = st.columns([3, 2])
-                with _fsort_col1:
-                    st.markdown(
-                        "<div style='font-size:0.7rem;color:#888;padding-top:4px'>"
-                        "★ 클릭 → 검색창 자동입력 &nbsp;|&nbsp; 🗑️ → 해제</div>",
-                        unsafe_allow_html=True
-                    )
-                with _fsort_col2:
-                    _fav_sort = st.selectbox(
-                        "정렬",
-                        options=["저장순", "조회수순", "저장날짜↑"],
-                        key="fav_sort_select",
-                        label_visibility="collapsed"
-                    )
-                # ── 정렬 적용 ─────────────────────────────────────────
-                _favs_sorted = list(_favs_now)
-                if _fav_sort == "조회수순":
-                    _favs_sorted.sort(key=lambda f: f.get("score", 0), reverse=True)
-                elif _fav_sort == "저장날짜↑":
-                    _favs_sorted.sort(key=lambda f: f.get("saved", ""), reverse=False)
-                # 저장순은 기본 순서 유지
+        # ── 즐겨찾기 폴더 섹션 ─────────────────────────────────────────
+        _favs_now   = st.session_state.get("favorites", [])
+        _fav_folders_d = st.session_state.get("fav_folders", {"기본 폴더": []})
+        _dm_fav     = st.session_state.get("dark_mode", False)
 
-                # ── 📊 대시보드 토글 버튼 ─────────────────────────────
+        # 폴더 액션 처리 (rename / new / del)
+        _ff_action = st.session_state.pop("fav_folder_action", "")
+        if _ff_action.startswith("NEW_FOLDER:"):
+            _nf = _ff_action[11:].strip()
+            if _nf and _nf not in _fav_folders_d:
+                _fav_folders_d[_nf] = []
+                st.session_state["fav_folders"] = _fav_folders_d
+                st.session_state["fav_new_folder_mode"] = False
+                st.rerun()
+        elif _ff_action.startswith("RENAME_FOLDER:"):
+            _rp = _ff_action[14:].split(":", 1)
+            if len(_rp) == 2:
+                _ro, _rn = _rp[0], _rp[1].strip()
+                if _rn and _ro != _rn and _rn not in _fav_folders_d:
+                    _fav_folders_d[_rn] = _fav_folders_d.pop(_ro, [])
+                    st.session_state["fav_folders"] = _fav_folders_d
+                    for _fi2 in st.session_state.get("favorites", []):
+                        if _fi2.get("folder") == _ro:
+                            _fi2["folder"] = _rn
+                    st.session_state["fav_rename_folder"] = ""
+                    st.rerun()
+        elif _ff_action.startswith("DEL_FOLDER:"):
+            _df2 = _ff_action[11:]
+            if _df2 != "기본 폴더":
+                _orphans2 = _fav_folders_d.pop(_df2, [])
+                _fav_folders_d.setdefault("기본 폴더", []).extend(_orphans2)
+                st.session_state["fav_folders"] = _fav_folders_d
+                for _fi3 in st.session_state.get("favorites", []):
+                    if _fi3.get("folder") == _df2:
+                        _fi3["folder"] = "기본 폴더"
+                st.rerun()
+
+        # 즐겨찾기 있을 때 전체 컨테이너 헤더
+        _total_fav = len(_favs_now)
+        _all_folders = list(_fav_folders_d.keys())
+
+        # ── 즐겨찾기 전체 expander (최상위) ──────────────────────────
+        _fav_main_label = (
+            f"⭐ 즐겨찾기 {_total_fav}개  ·  📁 {len(_all_folders)}폴더"
+            if _total_fav > 0 else "⭐ 즐겨찾기 — 클릭하여 열기"
+        )
+        # palette
+        _fmain_bg   = "#1e2038" if _dm_fav else "#f8f9ff"
+        _fmain_bd   = "#2e3157" if _dm_fav else "#e0e5ff"
+        _fhdr_c     = "#7c9ef8" if _dm_fav else "#4f7ef8"
+        _ftxt_c     = "#c5c8e0" if _dm_fav else "#3a4166"
+        _fbadge_bg  = "#252640" if _dm_fav else "#eef2ff"
+        _fbadge_c   = "#a0aee0" if _dm_fav else "#4338ca"
+        _folder_hdr_bg  = "#252640" if _dm_fav else "#f0f4ff"
+        _folder_hdr_bd  = "#3a3d60" if _dm_fav else "#c7d2fe"
+        _folder_hdr_c   = "#8090d0" if _dm_fav else "#4338ca"
+        _card_bg        = "#1e2038" if _dm_fav else "#ffffff"
+        _card_bd_added  = "#2a5040" if _dm_fav else "#86efac"
+        _card_bd_normal = "#3a3d60" if _dm_fav else "#fde68a"
+        _card_lc_added  = "#4ade80" if _dm_fav else "#16a34a"
+        _card_lc_normal = "#fbbf24" if _dm_fav else "#d97706"
+        _card_title_c   = "#d0d4f0" if _dm_fav else "#2d3250"
+        _card_sub_c     = "#6070a0" if _dm_fav else "#b0b8cc"
+        _badge_bg_kw    = "#2a2e50" if _dm_fav else "#fef9c3"
+        _badge_c_kw     = "#a0a8d0" if _dm_fav else "#a16207"
+
+        with st.expander(_fav_main_label, expanded=st.session_state.get("fav_exp_open", False)):
+
+            # ── 상단 액션 바: 새 폴더 만들기 / 대시보드 ─────────────
+            _act_c1, _act_c2 = st.columns([1, 1])
+            with _act_c1:
+                if st.button(
+                    "📁 새 폴더",
+                    key="btn_new_folder",
+                    use_container_width=True,
+                    help="새 폴더를 만들어 즐겨찾기를 분류하세요"
+                ):
+                    st.session_state["fav_new_folder_mode"] = not st.session_state.get("fav_new_folder_mode", False)
+                    st.rerun()
+            with _act_c2:
                 _fdb_open = st.session_state.get("fav_dashboard_open", False)
                 if st.button(
-                    "📊 조회수 비교 대시보드 닫기" if _fdb_open else "📊 조회수 비교 대시보드 보기",
+                    "📊 대시보드 닫기" if _fdb_open else "📊 대시보드",
                     key="btn_fav_dashboard",
                     use_container_width=True
                 ):
                     st.session_state["fav_dashboard_open"] = not _fdb_open
                     st.rerun()
 
-                # ── 📊 대시보드 뷰 ────────────────────────────────────
-                if st.session_state.get("fav_dashboard_open", False):
-                    _fdb_items = [f for f in _favs_sorted if f.get("sparkline")]
-                    if not _fdb_items:
-                        st.info("📈 스파크라인 데이터가 있는 즐겨찾기가 없습니다. (새로 추출한 서브주제를 즐겨찾기 해주세요)")
-                    else:
+            # ── 새 폴더 입력 폼 ──────────────────────────────────────
+            if st.session_state.get("fav_new_folder_mode", False):
+                st.markdown(
+                    f"<div style='background:{_fmain_bg};border:1px solid {_fmain_bd};"
+                    f"border-radius:8px;padding:8px 10px;margin:4px 0'>"
+                    f"<span style='font-size:0.68rem;color:{_fhdr_c};font-weight:700'>📁 새 폴더 이름 입력</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+                _nf_inp_c, _nf_btn_c = st.columns([3, 1])
+                with _nf_inp_c:
+                    _new_fname = st.text_input(
+                        "폴더명",
+                        key="new_folder_name_input",
+                        placeholder="예: 요리, 여행, 뷰티...",
+                        label_visibility="collapsed"
+                    )
+                with _nf_btn_c:
+                    if st.button("✚ 생성", key="btn_create_folder", use_container_width=True):
+                        if _new_fname and _new_fname.strip():
+                            st.session_state["fav_folder_action"] = f"NEW_FOLDER:{_new_fname.strip()}"
+                            st.rerun()
+                st.markdown("<hr style='margin:4px 0'>", unsafe_allow_html=True)
+
+            # ── 📊 대시보드 뷰 ────────────────────────────────────────
+            if st.session_state.get("fav_dashboard_open", False):
+                # 정렬 옵션 (대시보드 내)
+                _fsort_db = st.selectbox(
+                    "정렬",
+                    options=["저장순", "조회수순", "저장날짜↑"],
+                    key="fav_sort_db",
+                    label_visibility="collapsed"
+                )
+                _favs_db = list(_favs_now)
+                if _fsort_db == "조회수순":
+                    _favs_db.sort(key=lambda f: f.get("score", 0), reverse=True)
+                elif _fsort_db == "저장날짜↑":
+                    _favs_db.sort(key=lambda f: f.get("saved", ""), reverse=False)
+
+                _fdb_items = [f for f in _favs_db if f.get("sparkline")]
+                if not _fdb_items:
+                    st.info("📈 스파크라인 데이터가 있는 즐겨찾기가 없습니다.")
+                else:
+                    st.markdown(
+                        f"<div style='font-size:0.72rem;font-weight:800;color:{_fhdr_c};"
+                        f"margin:4px 0 6px 0'>📊 조회수 추이 비교</div>",
+                        unsafe_allow_html=True
+                    )
+                    _fdb_show    = _fdb_items[:6]
+                    _fdb_all_max = max((max(f.get("sparkline", [50])) for f in _fdb_show), default=1)
+                    _fdb_pairs   = [_fdb_show[i:i+2] for i in range(0, len(_fdb_show), 2)]
+                    _fdb_pal     = _chart_palette(_dm_fav)
+                    for _pair in _fdb_pairs:
+                        _db_c = st.columns(len(_pair))
+                        for _dci, _ditem in enumerate(_pair):
+                            with _db_c[_dci]:
+                                _dsp   = (_ditem.get("sparkline", [50]*7) + [50]*7)[:7]
+                                _dmax  = max(_dsp) or 1
+                                _dmin  = min(_dsp)
+                                _drng  = _dmax - _dmin or 1
+                                _dW, _dH = 140, 50
+                                _dpts  = []
+                                for _dsi, _dsv in enumerate(_dsp):
+                                    _dsx = int(_dsi / 6 * (_dW - 12)) + 6
+                                    _dsy = int((1 - (_dsv - _dmin) / _drng) * (_dH - 16)) + 6
+                                    _dpts.append((_dsx, _dsy, _dsv))
+                                _dpoly  = " ".join(f"{x},{y}" for x,y,_ in _dpts)
+                                _dtrend = _dsp[-1] - _dsp[0]
+                                _fdb_pal2 = _chart_palette(_dm_fav)
+                                _dcol   = _fdb_pal2["rise"] if _dtrend > 5 else (_fdb_pal2["fall"] if _dtrend < -5 else _fdb_pal2["flat"])
+                                _darrow = "▲" if _dtrend > 5 else ("▼" if _dtrend < -5 else "━")
+                                _dfill  = f"6,{_dH} " + _dpoly + f" {_dpts[-1][0]},{_dH}"
+                                _last_val  = _dsp[-1]
+                                _first_val = _dsp[0]
+                                _dtitle_full = _ditem.get("topic", "")
+                                _dtitle  = _dtitle_full[:14] + ("…" if len(_dtitle_full) > 14 else "")
+                                _dkw     = _ditem.get("keyword", "")[:8]
+                                _dscore  = _ditem.get("score", 0)
+                                _dbar_w  = max(4, int(_dscore / (_fdb_all_max or 1) * 100))
+                                _dfolder_badge = _ditem.get("folder", "기본 폴더")[:6]
+                                _dsvg = (
+                                    f"<div style='background:{_fdb_pal2['sparkline_bg']};border:1px solid {_fdb_pal2['sparkline_border']};"
+                                    f"border-radius:10px;padding:7px 8px 5px 8px;margin-bottom:6px;"
+                                    f"border-top:3px solid {_dcol};'>"
+                                    f"<div style='font-size:0.72rem;font-weight:800;color:{_fdb_pal2['summary_val']};"
+                                    f"margin-bottom:1px;overflow:hidden;white-space:nowrap;"
+                                    f"text-overflow:ellipsis' title='{_dtitle_full}'>{_dtitle}</div>"
+                                    f"<div style='font-size:0.57rem;color:{_fdb_pal2['sparkline_label']};margin-bottom:4px'>"
+                                    f"📁 {_dfolder_badge}  ·  {_ditem.get('saved', '')}</div>"
+                                    f"<svg width='100%' viewBox='0 0 {_dW} {_dH+8}' style='overflow:visible'>"
+                                    f"<defs><linearGradient id='dbg{_dci}_{id(_ditem)}' x1='0' y1='0' x2='0' y2='1'>"
+                                    f"<stop offset='0%' stop-color='{_dcol}' stop-opacity='{_fdb_pal2['area_opacity_hi']}'/>"
+                                    f"<stop offset='100%' stop-color='{_dcol}' stop-opacity='{_fdb_pal2['area_opacity_lo']}'/>"
+                                    f"</linearGradient></defs>"
+                                    f"<polygon points='{_dfill}' fill='url(#dbg{_dci}_{id(_ditem)})'/>"
+                                    f"<polyline points='{_dpoly}' fill='none' stroke='{_dcol}' stroke-width='2' stroke-linejoin='round'/>"
+                                    + "".join(
+                                        "<circle cx='" + str(x) + "' cy='" + str(y) + "' r='" + ("3.5" if v in (_dmax, _dmin) else "2") + "' "
+                                        "fill='" + (_fdb_pal2["rise"] if v == _dmax else (_fdb_pal2["fall"] if v == _dmin else _dcol)) + "' stroke='" + _fdb_pal2["bg"] + "' stroke-width='1'/>"
+                                        for x, y, v in _dpts
+                                    )
+                                    + "<text x='" + str(_dpts[-1][0]) + "' y='" + str(max(6, _dpts[-1][1]-5)) + "' text-anchor='middle' "
+                                    + "font-size='8' fill='" + _dcol + "' font-weight='bold'>" + str(_last_val) + "</text>"
+                                    + "<text x='6' y='" + str(max(6, _dpts[0][1]-5)) + "' text-anchor='start' "
+                                    + "font-size='7' fill='" + _fdb_pal2["x_label"] + "'>" + str(_first_val) + "</text>"
+                                    f"</svg>"
+                                    f"<div style='margin-top:4px;display:flex;align-items:center;gap:4px'>"
+                                    + "<div style='flex:1;height:3px;border-radius:2px;background:" + _fdb_pal2["grid"] + "'>"
+                                    f"<div style='height:3px;border-radius:2px;background:{_dcol};width:{_dbar_w}%'></div></div>"
+                                    f"<span style='font-size:0.58rem;color:{_dcol};font-weight:700'>{_darrow}{abs(_dtrend)}</span>"
+                                    f"</div>"
+                                    f"</div>"
+                                )
+                                st.markdown(_dsvg, unsafe_allow_html=True)
+                    if len(_fdb_items) > 6:
+                        st.caption(f"※ 상위 6개만 표시 (전체 {len(_fdb_items)}개)")
+                st.markdown("<hr style='margin:6px 0'>", unsafe_allow_html=True)
+
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            # 📁 폴더별 카드 렌더링
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            # favorites를 folder 기준으로 그룹화
+            _fav_by_folder = {}
+            for _fitem in _favs_now:
+                _fol = _fitem.get("folder", "기본 폴더")
+                if _fol not in _fav_by_folder:
+                    _fav_by_folder[_fol] = []
+                _fav_by_folder[_fol].append(_fitem)
+            # fav_folders에 있지만 아직 항목 없는 폴더도 표시
+            for _fn in _fav_folders_d:
+                if _fn not in _fav_by_folder:
+                    _fav_by_folder[_fn] = []
+            # 폴더 순서: fav_folders 키 순서 유지
+            _ordered_folders = [f for f in _fav_folders_d if f in _fav_by_folder]
+
+            _global_fi = 0  # 전체 카드 인덱스 (button key 충돌 방지)
+            for _fol_name in _ordered_folders:
+                _fol_items = _fav_by_folder[_fol_name]
+                _fol_cnt   = len(_fol_items)
+                # 폴더 헤더 HTML
+                _fol_open_key = f"fol_open_{_fol_name}"
+                _fol_is_open  = st.session_state.get(_fol_open_key, True)
+
+                # 폴더 헤더 렌더링
+                st.markdown(
+                    f"<div style='background:{_folder_hdr_bg};border:1px solid {_folder_hdr_bd};"
+                    f"border-radius:8px;padding:5px 10px;margin:5px 0 2px 0;"
+                    f"display:flex;align-items:center;justify-content:space-between'>"
+                    f"<span style='font-size:0.78rem;font-weight:800;color:{_folder_hdr_c}'>"
+                    f"{'📂' if _fol_is_open else '📁'} {_fol_name}"
+                    f"<span style='font-size:0.62rem;font-weight:500;margin-left:5px;"
+                    f"background:{_fbadge_bg};color:{_fbadge_c};padding:1px 6px;"
+                    f"border-radius:8px'>{_fol_cnt}개</span></span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+                # 폴더 열기/접기 + 이름변경 + 삭제 버튼 행
+                _fhdr_c1, _fhdr_c2, _fhdr_c3, _fhdr_c4 = st.columns([3, 1, 1, 1])
+                with _fhdr_c1:
+                    if st.button(
+                        f"{'🔼 접기' if _fol_is_open else '🔽 펼치기'}",
+                        key=f"fol_toggle_{_fol_name}",
+                        use_container_width=True,
+                        help=f"'{_fol_name}' 폴더 {'접기' if _fol_is_open else '펼치기'}"
+                    ):
+                        st.session_state[_fol_open_key] = not _fol_is_open
+                        st.rerun()
+                with _fhdr_c2:
+                    if st.button(
+                        "✏️",
+                        key=f"fol_rename_btn_{_fol_name}",
+                        use_container_width=True,
+                        help=f"'{_fol_name}' 폴더 이름 변경"
+                    ):
+                        st.session_state["fav_rename_folder"] = (
+                            "" if st.session_state.get("fav_rename_folder") == _fol_name else _fol_name
+                        )
+                        st.rerun()
+                with _fhdr_c3:
+                    # 폴더 이동 대상 폴더 선택 (다른 폴더로 전체이동 — 빈 폴더 삭제용)
+                    pass  # 삭제 버튼
+                with _fhdr_c4:
+                    if _fol_name != "기본 폴더":
+                        if st.button(
+                            "🗑️",
+                            key=f"fol_del_btn_{_fol_name}",
+                            use_container_width=True,
+                            help=f"'{_fol_name}' 폴더 삭제 (항목은 기본 폴더로 이동)"
+                        ):
+                            st.session_state["fav_folder_action"] = f"DEL_FOLDER:{_fol_name}"
+                            st.rerun()
+
+                # 이름 변경 인풋
+                if st.session_state.get("fav_rename_folder") == _fol_name:
+                    _rn_c1, _rn_c2 = st.columns([3, 1])
+                    with _rn_c1:
+                        _rename_val = st.text_input(
+                            "새 이름",
+                            value=_fol_name,
+                            key=f"rename_input_{_fol_name}",
+                            label_visibility="collapsed"
+                        )
+                    with _rn_c2:
+                        if st.button("✔", key=f"rename_ok_{_fol_name}", use_container_width=True):
+                            if _rename_val and _rename_val != _fol_name:
+                                st.session_state["fav_folder_action"] = f"RENAME_FOLDER:{_fol_name}:{_rename_val}"
+                                st.rerun()
+
+                # 폴더 내 카드 (접힌 상태면 생략)
+                if _fol_is_open:
+                    if not _fol_items:
                         st.markdown(
-                            "<div style='font-size:0.72rem;font-weight:800;color:#1565C0;"
-                            "margin:4px 0 6px 0'>📊 즐겨찾기 조회수 추이 비교</div>",
+                            f"<div style='font-size:0.72rem;color:{_card_sub_c};"
+                            f"padding:6px 10px;font-style:italic'>빈 폴더</div>",
                             unsafe_allow_html=True
                         )
-                        # 최대 6개 아이템, 2열 그리드
-                        _fdb_show = _fdb_items[:6]
-                        # 모든 항목의 최대 점수 (비교 기준)
-                        _fdb_all_max = max((max(f.get("sparkline",[50])) for f in _fdb_show), default=1)
-                        _fdb_pairs   = [_fdb_show[i:i+2] for i in range(0, len(_fdb_show), 2)]
-                        for _pair in _fdb_pairs:
-                            _db_c = st.columns(len(_pair))
-                            for _dci, _ditem in enumerate(_pair):
-                                with _db_c[_dci]:
-                                    _dsp   = (_ditem.get("sparkline",[50]*7) + [50]*7)[:7]
-                                    _dmax  = max(_dsp) or 1
-                                    _dmin  = min(_dsp)
-                                    _drng  = _dmax - _dmin or 1
-                                    _dW, _dH = 140, 50
-                                    _dpts  = []
-                                    for _dsi, _dsv in enumerate(_dsp):
-                                        _dsx = int(_dsi / 6 * (_dW - 12)) + 6
-                                        _dsy = int((1 - (_dsv - _dmin) / _drng) * (_dH - 16)) + 6
-                                        _dpts.append((_dsx, _dsy, _dsv))
-                                    _dpoly  = " ".join(f"{x},{y}" for x,y,_ in _dpts)
-                                    _dtrend = _dsp[-1] - _dsp[0]
-                                    _dcol   = "#E53935" if _dtrend > 5 else ("#4CAF50" if _dtrend < -5 else "#FF9800")
-                                    _darrow = "▲" if _dtrend > 5 else ("▼" if _dtrend < -5 else "━")
-                                    _dfill  = f"6,{_dH} " + _dpoly + f" {_dpts[-1][0]},{_dH}"
-                                    # 마지막 포인트 수치
-                                    _last_val = _dsp[-1]
-                                    _first_val = _dsp[0]
-                                    _dtitle_full = _ditem.get("topic","")
-                                    _dtitle  = _dtitle_full[:14] + ("…" if len(_dtitle_full)>14 else "")
-                                    _dkw     = _ditem.get("keyword","")[:8]
-                                    _dscore  = _ditem.get("score", 0)
-                                    # score → 인기도 바 (전체 max 대비)
-                                    _dbar_w  = max(4, int(_dscore / (_fdb_all_max or 1) * 100))
-                                    _dsvg = (
-                                        f"<div style='background:#f8f9ff;border:1px solid #e3e8ff;"
-                                        f"border-radius:10px;padding:7px 8px 5px 8px;margin-bottom:6px;"
-                                        f"border-top:3px solid {_dcol};'>"
-                                        f"<div style='font-size:0.65rem;font-weight:800;color:#333;"
-                                        f"margin-bottom:3px;overflow:hidden;white-space:nowrap;"
-                                        f"text-overflow:ellipsis' title='{_dtitle_full}'>{_dtitle}</div>"
-                                        f"<div style='font-size:0.57rem;color:#aaa;margin-bottom:4px'>"
-                                        f"🔑 {_dkw}  ·  저장: {_ditem.get('saved','')}</div>"
-                                        f"<svg width='100%' viewBox='0 0 {_dW} {_dH+8}' style='overflow:visible'>"
-                                        f"<defs><linearGradient id='dbg{_dci}_{id(_ditem)}' x1='0' y1='0' x2='0' y2='1'>"
-                                        f"<stop offset='0%' stop-color='{_dcol}' stop-opacity='0.2'/>"
-                                        f"<stop offset='100%' stop-color='{_dcol}' stop-opacity='0.02'/>"
-                                        f"</linearGradient></defs>"
-                                        f"<polygon points='{_dfill}' fill='url(#dbg{_dci}_{id(_ditem)})'/>"
-                                        f"<polyline points='{_dpoly}' fill='none' stroke='{_dcol}' stroke-width='2' stroke-linejoin='round'/>"
-                                        + "".join(
-                                            "<circle cx='" + str(x) + "' cy='" + str(y) + "' r='" + ("3.5" if v in (_dmax,_dmin) else "2") + "' "
-                                            "fill='" + ("#E53935" if v==_dmax else ("#4CAF50" if v==_dmin else _dcol)) + "' stroke='white' stroke-width='1'/>"
-                                            for x,y,v in _dpts
-                                        )
-                                        + f"<text x='{_dpts[-1][0]}' y='{max(6,_dpts[-1][1]-5)}' text-anchor='middle' "
-                                        f"font-size='8' fill='{_dcol}' font-weight='bold'>{_last_val}</text>"
-                                        + f"<text x='6' y='{max(6,_dpts[0][1]-5)}' text-anchor='start' "
-                                        f"font-size='7' fill='#aaa'>{_first_val}</text>"
-                                        f"</svg>"
-                                        # 인기도 바
-                                        f"<div style='margin-top:4px;display:flex;align-items:center;gap:4px'>"
-                                        f"<div style='flex:1;height:3px;border-radius:2px;background:#efefef'>"
-                                        f"<div style='height:3px;border-radius:2px;background:{_dcol};width:{_dbar_w}%'></div></div>"
-                                        f"<span style='font-size:0.58rem;color:{_dcol};font-weight:700'>{_darrow}{abs(_dtrend)}</span>"
-                                        f"</div>"
-                                        f"</div>"
+                    else:
+                        # 정렬 선택 (폴더별)
+                        _f_sortcol1, _f_sortcol2 = st.columns([3, 2])
+                        with _f_sortcol1:
+                            st.markdown(
+                                f"<div style='font-size:0.72rem;color:{_card_sub_c};padding-top:3px'>"
+                                f"★→검색창  🗑️→삭제  📂→이동</div>",
+                                unsafe_allow_html=True
+                            )
+                        with _f_sortcol2:
+                            _fol_sort = st.selectbox(
+                                "정렬",
+                                options=["저장순", "조회수순"],
+                                key=f"fol_sort_{_fol_name}",
+                                label_visibility="collapsed"
+                            )
+                        if _fol_sort == "조회수순":
+                            _fol_items = sorted(_fol_items, key=lambda f: f.get("score", 0), reverse=True)
+
+                        # 드래그&드롭 (저장순 + sortables 사용 가능 시)
+                        if _fol_sort == "저장순" and _HAS_SORTABLES and len(_fol_items) > 1:
+                            _drag_topics = [f.get("topic", f"항목{i}") for i, f in enumerate(_fol_items)]
+                            st.markdown(
+                                f"<div style='font-size:0.63rem;color:{_card_sub_c};margin-bottom:3px'>"
+                                f"↕ 드래그하여 순서 변경</div>",
+                                unsafe_allow_html=True
+                            )
+                            _sorted_fol = _sort_items(
+                                items=_drag_topics,
+                                direction="vertical",
+                                key=f"fol_sortable_{_fol_name}"
+                            )
+                            if _sorted_fol != _drag_topics:
+                                _omap = {t: i for i, t in enumerate(_sorted_fol)}
+                                _fol_reordered = sorted(_fol_items, key=lambda f: _omap.get(f.get("topic", ""), 999))
+                                # 전체 favorites 재정렬 반영
+                                _other_favs = [f for f in st.session_state["favorites"] if f.get("folder") != _fol_name]
+                                st.session_state["favorites"] = _other_favs + _fol_reordered
+                                st.rerun()
+
+                        for _fav in _fol_items:
+                            _fav_kw    = _fav.get("keyword", "")
+                            _fav_saved = _fav.get("saved", "")
+                            _fav_views = _fav.get("views", "")
+                            _fav_label_badge = _fav.get("label", "")
+                            _fav_cur_kws = [k.strip() for k in keywords_input.replace("，", ",").split(",") if k.strip()]
+                            _fav_added = _fav["topic"] in _fav_cur_kws
+
+                            _bd_col = _card_bd_added  if _fav_added else _card_bd_normal
+                            _lc_col = _card_lc_added  if _fav_added else _card_lc_normal
+
+                            _fav_html = (
+                                f"<div style='background:{_card_bg};"
+                                f"border:1.5px solid {_bd_col};"
+                                f"border-radius:10px;padding:7px 10px;margin-bottom:4px;"
+                                f"border-left:3px solid {_lc_col};"
+                                f"box-shadow:0 1px 3px rgba(0,0,0,0.08);'>"
+                                f"<div style='display:flex;justify-content:space-between;"
+                                f"align-items:center;margin-bottom:3px'>"
+                                f"<span style='font-size:0.60rem;background:{_badge_bg_kw};"
+                                f"color:{_badge_c_kw};padding:1px 7px;border-radius:8px;font-weight:700'>"
+                                f"{_fav_label_badge or '⭐ 즐겨찾기'}</span>"
+                                f"<span style='font-size:0.58rem;color:{_card_sub_c}'>"
+                                f"{_fav_kw} · {_fav_saved}</span>"
+                                f"</div>"
+                                f"<div style='font-size:0.80rem;font-weight:600;"
+                                f"color:{_card_title_c};line-height:1.4;margin-bottom:2px'>"
+                                f"{'✓ ' if _fav_added else '⭐ '}{_fav['topic']}"
+                                f"</div>"
+                                + (f"<div style='font-size:0.62rem;color:{_card_sub_c};margin-top:2px'>{_fav_views}</div>" if _fav_views else "")
+                                + f"</div>"
+                            )
+                            st.markdown(_fav_html, unsafe_allow_html=True)
+
+                            # 버튼 행: [추가 | 이동 | 삭제]
+                            _fb1, _fb2, _fb3 = st.columns([3, 2, 1])
+                            with _fb1:
+                                if st.button(
+                                    "✓ 추가됨" if _fav_added else "＋ 검색창에 추가",
+                                    key=f"fav_add_{_global_fi}",
+                                    use_container_width=True,
+                                    disabled=_fav_added
+                                ):
+                                    st.session_state["hot_topic_clicked"] = _fav["topic"]
+                                    st.rerun()
+                            with _fb2:
+                                # 이동할 폴더 선택
+                                _other_folders = [f for f in _all_folders if f != _fol_name]
+                                if _other_folders:
+                                    _move_dst = st.selectbox(
+                                        "이동",
+                                        options=["📂 이동..."] + _other_folders,
+                                        key=f"fav_move_sel_{_global_fi}",
+                                        label_visibility="collapsed"
                                     )
-                                    st.markdown(_dsvg, unsafe_allow_html=True)
-                        if len(_fdb_items) > 6:
-                            st.caption(f"※ 상위 6개만 표시 (전체 {len(_fdb_items)}개)")
-                    st.markdown("<hr style='margin:6px 0'>", unsafe_allow_html=True)
+                                    if _move_dst != "📂 이동...":
+                                        st.session_state["fav_action"] = f"MOVE:{_fav['topic']}:{_move_dst}"
+                                        st.rerun()
+                                else:
+                                    st.markdown(
+                                        f"<div style='font-size:0.62rem;color:{_card_sub_c};"
+                                        f"padding-top:4px;text-align:center'>폴더 없음</div>",
+                                        unsafe_allow_html=True
+                                    )
+                            with _fb3:
+                                if st.button(
+                                    "🗑️",
+                                    key=f"fav_del_{_global_fi}",
+                                    use_container_width=True,
+                                    help="즐겨찾기 해제"
+                                ):
+                                    st.session_state["fav_action"] = f"DEL:{_fav['topic']}"
+                                    st.rerun()
+                            _global_fi += 1
 
-                for _fi, _fav in enumerate(_favs_sorted):
-                    _fav_kw    = _fav.get("keyword", "")
-                    _fav_saved = _fav.get("saved", "")
-                    _fav_views = _fav.get("views", "")
-                    _fav_label_badge = _fav.get("label", "")
-                    _fav_cur_kws = [k.strip() for k in keywords_input.replace("，", ",").split(",") if k.strip()]
-                    _fav_added = _fav["topic"] in _fav_cur_kws
-                    _fav_bg    = "#f0faf0" if _fav_added else "#fffde7"
+                st.markdown("<hr style='margin:3px 0'>", unsafe_allow_html=True)
 
-                    _fav_html = (
-                        f"<div style='background:{_fav_bg};border:1px solid #ffe082;"
-                        f"border-radius:8px;padding:7px 10px;margin-bottom:4px;"
-                        f"border-left:3px solid #FFB300;'>"
-                        f"<div style='display:flex;justify-content:space-between;align-items:center'>"
-                        f"<span style='font-size:0.62rem;background:#fff9c4;color:#F57F17;"
-                        f"padding:1px 6px;border-radius:6px'>{_fav_label_badge or '⭐즐겨찾기'}</span>"
-                        f"<span style='font-size:0.60rem;color:#aaa'>{_fav_kw} · {_fav_saved}</span>"
-                        f"</div>"
-                        f"<div style='font-size:0.82rem;font-weight:600;color:#333;"
-                        f"margin-top:4px;line-height:1.4'>"
-                        f"{'✓ ' if _fav_added else '⭐ '}{_fav['topic']}"
-                        f"</div>"
-                        + (f"<div style='font-size:0.62rem;color:#aaa;margin-top:2px'>{_fav_views}</div>" if _fav_views else "")
-                        + f"</div>"
-                    )
-                    st.markdown(_fav_html, unsafe_allow_html=True)
-                    _fc1, _fc2 = st.columns([4, 1])
-                    with _fc1:
-                        if st.button(
-                            "✓ 추가됨" if _fav_added else "＋ 검색창에 추가",
-                            key=f"fav_add_{_fi}",
-                            use_container_width=True,
-                            disabled=_fav_added
-                        ):
-                            st.session_state["hot_topic_clicked"] = _fav["topic"]
-                            st.rerun()
-                    with _fc2:
-                        if st.button("🗑️", key=f"fav_del_{_fi}", use_container_width=True, help="즐겨찾기 해제"):
-                            st.session_state["fav_action"] = f"DEL:{_fav['topic']}"
-                            st.rerun()
+            # ── 전체 삭제 버튼 ────────────────────────────────────────
+            if st.button("🗑️ 즐겨찾기 전체 삭제", key="btn_clear_favs", use_container_width=True):
+                st.session_state["favorites"] = []
+                _ff_reset = {k: [] for k in st.session_state.get("fav_folders", {"기본 폴더": []})}
+                st.session_state["fav_folders"] = _ff_reset
+                st.rerun()
 
-                if st.button("🗑️ 즐겨찾기 전체 삭제", key="btn_clear_favs", use_container_width=True):
-                    st.session_state["favorites"] = []
-                    st.rerun()
+
 
         # ── 📊 상세 그래프 (전체폭 팝업) ──────────────────────────────────
         _detail_topic = st.session_state.get("detail_chart_topic", "")
         _detail_data  = st.session_state.get("detail_chart_data", {})
         if _detail_topic and _detail_data:
             from datetime import datetime as _dtnow2, timedelta as _td2
+            _pal = _chart_palette(st.session_state.get("dark_mode", False))
             st.markdown(
-                f"<div style='background:#fff;border:2px solid #1976D2;border-radius:14px;"
-                f"padding:16px 18px;margin:8px 0 6px 0;box-shadow:0 4px 18px rgba(25,118,210,0.13)'>"
-                f"<div style='font-size:0.78rem;font-weight:800;color:#1976D2;margin-bottom:8px'>"
-                f"📊 7일 상세 트렌드: <span style='color:#222'>{_detail_topic}</span></div>",
+                f"<div style='background:{_pal['bg']};"
+                f"border:1.5px solid {_pal['card_border']};"
+                f"border-radius:12px;padding:12px 14px;margin:8px 0 6px 0;"
+                f"box-shadow:0 3px 12px rgba(79,126,248,0.12)'>"
+                f"<div style='display:flex;align-items:center;gap:6px;margin-bottom:8px'>"
+                f"<div style='width:4px;height:16px;"
+                f"background:linear-gradient(180deg,#4f7ef8,#a78bfa);border-radius:2px'></div>"
+                f"<span style='font-size:0.75rem;font-weight:800;color:#1d4ed8'>📊 7일 트렌드</span>"
+                f"<span style='font-size:0.68rem;color:#64748b;font-weight:500'>{_detail_topic[:20]}{'...' if len(_detail_topic)>20 else ''}</span>"
+                f"</div>",
                 unsafe_allow_html=True
             )
             _dd_sp    = _detail_data.get("sparkline", [50]*7)
@@ -2675,21 +4345,21 @@ def main():
             _dd_poly  = " ".join(f"{x},{y}" for x,y,_ in _dd_pts)
             _dd_fill  = f"12,{_DH} " + _dd_poly + f" {_dd_pts[-1][0]},{_DH}"
             _dd_trend = _dd_sp[-1] - _dd_sp[0]
-            _dd_col   = "#E53935" if _dd_trend > 5 else ("#4CAF50" if _dd_trend < -5 else "#FF9800")
+            _dd_col   = _pal["rise"] if _dd_trend > 5 else (_pal["fall"] if _dd_trend < -5 else _pal["flat"])
             # 막대 차트 (바 형태)
             _bar_section = ""
             _bar_w_each  = int((_DW - 24) / 7 * 0.72)
             for _bi, ((_bx, _by, _bv), _bd) in enumerate(zip(_dd_pts, _dd_dates)):
                 _bh     = int((_bv - _dd_min) / _dd_rng * (_DH - 24)) + 4
-                _b_col  = _dd_col if _bv == _dd_max else "#90CAF9"
+                _b_col  = _dd_col if _bv == _dd_max else _pal["bar_default"]
                 _bar_x  = _bx - _bar_w_each // 2
                 _bar_y  = _DH - _bh
                 _bar_section += (
                     f"<rect x='{_bar_x}' y='{_bar_y}' width='{_bar_w_each}' height='{_bh}' "
                     f"rx='2' fill='{_b_col}' opacity='0.35'/>"
                     f"<text x='{_bx}' y='{_bar_y - 3}' text-anchor='middle' "
-                    "font-size='8' fill='" + (_dd_col if _bv == _dd_max else "#666") + "' font-weight='" + ("bold" if _bv == _dd_max else "normal") + "'>" + str(_bv) + "</text>"
-                    f"<text x='{_bx}' y='{_DH + 12}' text-anchor='middle' font-size='7.5' fill='#888'>{_bd}</text>"
+                    "font-size='8' fill='" + (_dd_col if _bv == _dd_max else _pal["grid_text"]) + "' font-weight='" + ("bold" if _bv == _dd_max else "normal") + "'>" + str(_bv) + "</text>"
+                    "<text x='" + str(_bx) + "' y='" + str(_DH + 12) + "' text-anchor='middle' font-size='7.5' fill='" + _pal["x_label"] + "'>" + str(_bd) + "</text>"
                 )
             # 그리드
             _dd_grid = ""
@@ -2697,21 +4367,21 @@ def main():
                 _gy2 = int(_DH * _gi / 4)
                 _gv2 = int(_dd_max - (_dd_max - _dd_min) * _gi / 4)
                 _dd_grid += (
-                    f"<line x1='12' y1='{_gy2}' x2='{_DW-8}' y2='{_gy2}' stroke='#eeeeee' stroke-width='1'/>"
-                    f"<text x='6' y='{_gy2+3}' text-anchor='end' font-size='7' fill='#ccc'>{_gv2}</text>"
+                    "<line x1='12' y1='" + str(_gy2) + "' x2='" + str(_DW-8) + "' y2='" + str(_gy2) + "' stroke='" + _pal["grid"] + "' stroke-width='1'/>"
+                    "<text x='6' y='" + str(_gy2+3) + "' text-anchor='end' font-size='7' fill='" + _pal["grid_text"] + "'>" + str(_gv2) + "</text>"
                 )
             _detail_svg = (
                 f"<svg width='100%' viewBox='0 0 {_DW} {_DH+18}' style='overflow:visible;max-width:100%'>"
                 f"<defs><linearGradient id='dg' x1='0' y1='0' x2='0' y2='1'>"
-                f"<stop offset='0%' stop-color='{_dd_col}' stop-opacity='0.22'/>"
-                f"<stop offset='100%' stop-color='{_dd_col}' stop-opacity='0.01'/>"
+                "<stop offset='0%' stop-color='" + str(_dd_col) + "' stop-opacity='" + str(_pal["area_opacity_hi"]) + "'/>"
+                "<stop offset='100%' stop-color='" + str(_dd_col) + "' stop-opacity='" + str(_pal["area_opacity_lo"]) + "'/>"
                 f"</linearGradient></defs>"
                 f"{_dd_grid}"
                 f"{_bar_section}"
                 f"<polygon points='{_dd_fill}' fill='url(#dg)'/>"
                 f"<polyline points='{_dd_poly}' fill='none' stroke='{_dd_col}' stroke-width='2.5' stroke-linejoin='round'/>"
                 + "".join(
-                    f"<circle cx='{x}' cy='{y}' r='{'4' if v==_dd_max else '3'}' fill='{_dd_col}' stroke='white' stroke-width='1.5'/>"
+                    "<circle cx='" + str(x) + "' cy='" + str(y) + "' r='" + ('4' if v==_dd_max else '3') + "' fill='" + str(_dd_col) + "' stroke='" + _pal["bg"] + "' stroke-width='1.5'/>"
                     for x,y,v in _dd_pts
                 )
                 + f"</svg>"
@@ -2721,20 +4391,21 @@ def main():
             _dd_avg     = round(sum(_dd_sp) / len(_dd_sp), 1)
             _dd_arrow   = "▲" if _dd_trend > 5 else ("▼" if _dd_trend < -5 else "━")
             _dd_chcol   = "#E53935" if _dd_trend > 5 else ("#4CAF50" if _dd_trend < -5 else "#FF9800")
+            _dd_chcol2  = _pal["rise"] if _dd_trend > 5 else (_pal["fall"] if _dd_trend < -5 else _pal["flat"])
             _summary_html = (
                 f"<div style='display:flex;gap:8px;margin:8px 0 4px 0;flex-wrap:wrap'>"
-                f"<div style='flex:1;min-width:60px;background:#f5f5f5;border-radius:8px;padding:6px 8px;text-align:center'>"
-                f"<div style='font-size:0.62rem;color:#888'>최고</div>"
-                f"<div style='font-size:1.0rem;font-weight:900;color:#E53935'>{_dd_max}</div></div>"
-                f"<div style='flex:1;min-width:60px;background:#f5f5f5;border-radius:8px;padding:6px 8px;text-align:center'>"
-                f"<div style='font-size:0.62rem;color:#888'>최저</div>"
-                f"<div style='font-size:1.0rem;font-weight:900;color:#4CAF50'>{_dd_min}</div></div>"
-                f"<div style='flex:1;min-width:60px;background:#f5f5f5;border-radius:8px;padding:6px 8px;text-align:center'>"
-                f"<div style='font-size:0.62rem;color:#888'>평균</div>"
-                f"<div style='font-size:1.0rem;font-weight:900;color:#1976D2'>{_dd_avg}</div></div>"
-                f"<div style='flex:1;min-width:60px;background:#f5f5f5;border-radius:8px;padding:6px 8px;text-align:center'>"
-                f"<div style='font-size:0.62rem;color:#888'>변화</div>"
-                f"<div style='font-size:1.0rem;font-weight:900;color:{_dd_chcol}'>{_dd_arrow}{abs(_dd_change)}</div></div>"
+                f"<div style='flex:1;min-width:60px;background:{_pal['summary_bg']};border-radius:8px;padding:6px 8px;text-align:center'>"
+                f"<div style='font-size:0.62rem;color:{_pal['summary_text']}'>최고</div>"
+                f"<div style='font-size:1.0rem;font-weight:900;color:{_pal['rise']}'>{_dd_max}</div></div>"
+                f"<div style='flex:1;min-width:60px;background:{_pal['summary_bg']};border-radius:8px;padding:6px 8px;text-align:center'>"
+                f"<div style='font-size:0.62rem;color:{_pal['summary_text']}'>최저</div>"
+                f"<div style='font-size:1.0rem;font-weight:900;color:{_pal['fall']}'>{_dd_min}</div></div>"
+                f"<div style='flex:1;min-width:60px;background:{_pal['summary_bg']};border-radius:8px;padding:6px 8px;text-align:center'>"
+                f"<div style='font-size:0.62rem;color:{_pal['summary_text']}'>평균</div>"
+                f"<div style='font-size:1.0rem;font-weight:900;color:#7c9ef8'>{_dd_avg}</div></div>"
+                f"<div style='flex:1;min-width:60px;background:{_pal['summary_bg']};border-radius:8px;padding:6px 8px;text-align:center'>"
+                f"<div style='font-size:0.62rem;color:{_pal['summary_text']}'>변화</div>"
+                f"<div style='font-size:1.0rem;font-weight:900;color:{_dd_chcol2}'>{_dd_arrow}{abs(_dd_change)}</div></div>"
                 f"</div>"
             )
             st.markdown(
@@ -2757,15 +4428,132 @@ def main():
             min_value=5, max_value=50, value=_max_default, step=5
         )
 
-        _sort_options = ["조회수순","최신순","관련성순","평점순"]
-        _sort_idx = _sort_options.index(_s_sort) if _s_sort in _sort_options else 0
-        sort_option = st.selectbox(
-            "정렬 방식",
-            options=_sort_options,
-            index=_sort_idx
-        )
+        # ── 정렬 방식 (복수 + 우선순위) ─────────────────────────
+        _ALL_SORT_OPTS = ["조회수순","최신순","관련성순","평점순"]
         SORT_MAP = {"조회수순":"viewCount","최신순":"date","관련성순":"relevance","평점순":"rating"}
-        order_api = SORT_MAP[sort_option]
+        SORT_ICON = {"조회수순":"👁","최신순":"🕐","관련성순":"🎯","평점순":"⭐"}
+
+        # 세션에서 우선순위 리스트 복원
+        if "sort_priority" not in st.session_state:
+            _s_sort_norm = [_s_sort] if isinstance(_s_sort, str) and _s_sort in _ALL_SORT_OPTS else (
+                [s for s in (_s_sort if isinstance(_s_sort, list) else []) if s in _ALL_SORT_OPTS] or ["조회수순"]
+            )
+            st.session_state["sort_priority"] = _s_sort_norm
+
+        # 정렬 항목 추가 multiselect
+        st.markdown(
+            "<div style='font-size:.78rem;font-weight:700;color:#94a3b8;"
+            "text-transform:uppercase;letter-spacing:.06em;margin:10px 0 4px 0'>"
+            "📊 정렬 방식</div>", unsafe_allow_html=True
+        )
+        _cur_priority = st.session_state["sort_priority"]
+        _available_add = [o for o in _ALL_SORT_OPTS if o not in _cur_priority]
+        if _available_add:
+            _to_add = st.selectbox(
+                "정렬 추가",
+                options=["— 추가 선택 —"] + _available_add,
+                index=0, key="sort_add_sel",
+                label_visibility="collapsed"
+            )
+            if _to_add != "— 추가 선택 —":
+                st.session_state["sort_priority"].append(_to_add)
+                st.rerun()
+
+        # 우선순위 리스트 표시 + 위/아래/삭제 버튼
+        _new_priority = list(st.session_state["sort_priority"])
+        for _si, _sname in enumerate(_new_priority):
+            _sc1, _sc2, _sc3, _sc4 = st.columns([4,1,1,1])
+            with _sc1:
+                _badge_c = {"조회수순":"#2563eb","최신순":"#059669","관련성순":"#d97706","평점순":"#7c3aed"}
+                st.markdown(
+                    f"<div style='display:flex;align-items:center;gap:6px;"
+                    f"background:#f1f5f9;border-radius:8px;padding:4px 9px;margin:2px 0'>"
+                    f"<span style='font-size:.72rem;font-weight:700;color:white;"
+                    f"background:{_badge_c.get(_sname,'#64748b')};border-radius:50%;"
+                    f"width:18px;height:18px;display:inline-flex;align-items:center;"
+                    f"justify-content:center'>{_si+1}</span>"
+                    f"<span style='font-size:.82rem;font-weight:600;color:#334155'>"
+                    f"{SORT_ICON.get(_sname,'')} {_sname}</span></div>",
+                    unsafe_allow_html=True
+                )
+            with _sc2:
+                if _si > 0 and st.button("↑", key=f"sort_up_{_si}", help="우선순위 올리기"):
+                    _new_priority[_si-1], _new_priority[_si] = _new_priority[_si], _new_priority[_si-1]
+                    st.session_state["sort_priority"] = _new_priority
+                    st.rerun()
+            with _sc3:
+                if _si < len(_new_priority)-1 and st.button("↓", key=f"sort_dn_{_si}", help="우선순위 내리기"):
+                    _new_priority[_si], _new_priority[_si+1] = _new_priority[_si+1], _new_priority[_si]
+                    st.session_state["sort_priority"] = _new_priority
+                    st.rerun()
+            with _sc4:
+                if len(_new_priority) > 1 and st.button("✕", key=f"sort_del_{_si}", help="제거"):
+                    _new_priority.pop(_si)
+                    st.session_state["sort_priority"] = _new_priority
+                    st.rerun()
+
+        if not _new_priority:
+            st.warning("⚠️ 정렬 방식을 1개 이상 선택하세요.")
+            _new_priority = ["조회수순"]
+            st.session_state["sort_priority"] = _new_priority
+
+        sort_options    = _new_priority
+        order_api_list  = [SORT_MAP[s] for s in sort_options]
+        sort_option     = " + ".join(sort_options)
+
+        # ── 업로드 기간 (복수 선택) ──────────────────────────
+        st.markdown(
+            "<div style='font-size:.78rem;font-weight:700;color:#94a3b8;"
+            "text-transform:uppercase;letter-spacing:.06em;margin:10px 0 4px 0'>"
+            "📅 업로드 기간</div>", unsafe_allow_html=True
+        )
+        _DATE_OPTS = ["전체","오늘","1주일","1개월","3개월","6개월","1년"]
+        _date_sel = st.multiselect(
+            "업로드 기간",
+            options=_DATE_OPTS,
+            default=["전체"],
+            key="date_filter_multi",
+            label_visibility="collapsed",
+            help="복수 선택 시 각 기간 결과를 합산합니다."
+        )
+        if not _date_sel:
+            _date_sel = ["전체"]
+        # "전체" 포함 시 나머지 무시
+        if "전체" in _date_sel:
+            _date_sel = ["전체"]
+
+        from datetime import datetime as _dt, timedelta as _td
+        def _date_to_after(label):
+            now = _dt.utcnow()
+            _map = {"오늘":1,"1주일":7,"1개월":30,"3개월":90,"6개월":180,"1년":365}
+            days = _map.get(label)
+            if not days: return None
+            return (now - _td(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        _published_after_list = [_date_to_after(d) for d in _date_sel if d != "전체"]
+        if not _published_after_list:
+            _published_after_list = [None]
+
+        # ── 영상 길이 (복수 선택) ────────────────────────────
+        st.markdown(
+            "<div style='font-size:.78rem;font-weight:700;color:#94a3b8;"
+            "text-transform:uppercase;letter-spacing:.06em;margin:10px 0 4px 0'>"
+            "⏱️ 영상 길이</div>", unsafe_allow_html=True
+        )
+        _DUR_OPTS = ["전체","단편 (4분 미만)","중편 (4-20분)","장편 (20분 초과)"]
+        _DUR_API  = {"전체":None,"단편 (4분 미만)":"short","중편 (4-20분)":"medium","장편 (20분 초과)":"long"}
+        _dur_sel = st.multiselect(
+            "영상 길이",
+            options=_DUR_OPTS,
+            default=["전체"],
+            key="dur_filter_multi",
+            label_visibility="collapsed",
+            help="복수 선택 시 각 길이 범위 결과를 합산합니다."
+        )
+        if not _dur_sel:
+            _dur_sel = ["전체"]
+        if "전체" in _dur_sel:
+            _dur_sel = ["전체"]
+        _dur_api_list = [_DUR_API[d] for d in _dur_sel]  # None이면 필터 없음
 
         video_type = st.radio(
             "📹 영상 종류",
@@ -2883,7 +4671,7 @@ def main():
                     else:
                         st.caption("✅ Whisper API 키 설정됨")
 
-        st.markdown('<hr style="margin:6px 0">', unsafe_allow_html=True)
+        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
         search_btn = st.button("🚀 검색 시작", use_container_width=True, type="primary")
 
         # ✅ FIX: Secrets 로드 현황 디버그 패널
@@ -2900,7 +4688,14 @@ def main():
                 st.info("💡 OPENAI_API_KEY 설정 방법:\n```\nOPENAI_API_KEY = \"sk-proj-...\"\n```")
 
         st.markdown("---")
-        st.markdown("### 📊 Google Sheets 설정")
+        st.markdown(
+            "<div style='display:flex;align-items:center;gap:6px;margin:8px 0 4px 0'>"
+            "<div style='width:3px;height:14px;background:linear-gradient(180deg,#22c55e,#16a34a);"
+            "border-radius:2px'></div>"
+            "<span style='font-size:0.73rem;font-weight:700;color:#5c6480;"
+            "text-transform:uppercase;letter-spacing:0.05em'>📊 Google Sheets</span></div>",
+            unsafe_allow_html=True
+        )
 
         use_gsheet = st.checkbox(
             "Google Sheets 자동 업로드",
@@ -3004,6 +4799,13 @@ def main():
 
         keywords = [kw.strip() for kw in keywords_input.replace("，",",").split(",") if kw.strip()]
 
+        # ── 검색 기록 저장 (최근 5개 유지, 중복 제거) ──────────────
+        _hist_kw = keywords_input.strip()
+        _hist    = st.session_state.get("search_history", [])
+        _hist    = [h for h in _hist if h != _hist_kw]   # 중복 제거
+        _hist.insert(0, _hist_kw)                          # 맨 앞에 추가
+        st.session_state["search_history"] = _hist[:5]    # 최대 5개
+
 
         # credentials.json 로드: ①Secrets gcp → ②수동 업로드 → ③자동 탐색 순서
         creds_dict = None
@@ -3040,11 +4842,27 @@ def main():
         for ki, kw in enumerate(keywords):
             status_text.info(f"🔍 [{kw}] 검색 중... ({ki+1}/{total_steps})")
 
-            # 1) 검색
-            video_ids, err = search_youtube(api_key, kw, max_count, order_api, video_type)
-            if err:
-                st.error(f"❌ 오류: {err}")
-                st.stop()
+            # 1) 검색 (정렬 우선순위 × 업로드기간 × 영상길이 조합 병합, 중복 제거)
+            _seen_ids   = {}   # video_id → set(sort_source 레이블)
+            # 정렬 우선순위 순서대로 순회 (1순위 결과가 앞에 오도록)
+            for _oi, _oapi in enumerate(order_api_list):
+                _sort_label_tag = sort_options[_oi]  # 예: "조회수순"
+                for _pub_after in _published_after_list:
+                    for _dur_api in _dur_api_list:
+                        _ids_part, err = search_youtube(
+                            api_key, kw, max_count, _oapi, video_type,
+                            published_after=_pub_after, dur_filter=_dur_api
+                        )
+                        if err:
+                            st.error(f"❌ 오류: {err}")
+                            st.stop()
+                        for _vid in (_ids_part or []):
+                            if _vid not in _seen_ids:
+                                _seen_ids[_vid] = set()
+                            _seen_ids[_vid].add(_sort_label_tag)
+            video_ids = list(_seen_ids.keys())
+            # sort_sources 매핑 저장 (video 객체에 나중에 붙임)
+            _vid_sort_sources = {vid: sorted(tags) for vid, tags in _seen_ids.items()}
             if not video_ids:
                 st.warning(f"⚠️ [{kw}] 검색 결과가 없습니다.")
                 all_results[kw] = []
@@ -3159,10 +4977,11 @@ def main():
                         v["transcript"] if len(v.get("transcript","")) > 100 else v["description"]
                     )
 
-            # 5) 배지 & 순위
+            # 5) 배지 & 순위 & 정렬 출처 태그
             for rank_i, v in enumerate(videos, 1):
                 v["rank"]  = rank_i
                 v["badge"] = get_badge(rank_i, v["viewCount"])
+                v["sort_sources"] = _vid_sort_sources.get(v["videoId"], [])
 
             all_results[kw] = videos
             all_videos_flat.extend(videos)
@@ -3178,6 +4997,14 @@ def main():
         st.session_state["results"]       = all_results
         st.session_state["channel_stats"] = channel_stats
         st.session_state["sort_label"]    = sort_option
+        st.session_state["filter_summary"] = {
+            "sort":  sort_options,
+            "date":  _date_sel,
+            "dur":   _dur_sel,
+            "vtype": video_type,
+            "max":   max_count,
+            "kws":   keywords,
+        }
         st.session_state["creds_dict"]    = creds_dict
         st.session_state["share_email"]   = share_email
         st.session_state["existing_id"]   = existing_id
@@ -3234,7 +5061,7 @@ streamlit run youtube_web_app.py
 
     all_results   = st.session_state["results"]
     channel_stats = st.session_state["channel_stats"]
-    sort_label    = st.session_state["sort_label"]
+    sort_label    = st.session_state.get("sort_label", "조회수순")
 
     # ✅ FIX: Whisper 오류 요약 표시
     _we = st.session_state.get("whisper_errors", [])
@@ -3438,6 +5265,67 @@ streamlit run youtube_web_app.py
 
     st.markdown("---")
 
+    # ── 검색 조건 요약 패널 ───────────────────────────────────
+    _fs = st.session_state.get("filter_summary", {})
+    if _fs:
+        _SORT_COLOR = {"조회수순":"#2563eb","최신순":"#059669","관련성순":"#d97706","평점순":"#7c3aed"}
+        _DATE_COLOR = {"전체":"#64748b","오늘":"#dc2626","1주일":"#ea580c",
+                       "1개월":"#d97706","3개월":"#059669","6개월":"#0891b2","1년":"#7c3aed"}
+        _DUR_COLOR  = {"전체":"#64748b","단편 (4분 미만)":"#2563eb",
+                       "중편 (4-20분)":"#059669","장편 (20분 초과)":"#7c3aed"}
+
+        def _tag(label, color, prefix=""):
+            return (
+                f"<span style='display:inline-flex;align-items:center;gap:3px;"
+                f"background:{color}18;border:1px solid {color}55;border-radius:12px;"
+                f"padding:3px 10px;font-size:.78rem;font-weight:600;color:{color};"
+                f"margin:2px 3px'>{prefix}{label}</span>"
+            )
+
+        _sort_tags  = "".join(_tag(f"{i+1}순위 {s}", _SORT_COLOR.get(s,'#64748b'), "")
+                              for i, s in enumerate(_fs.get("sort",[])))
+        _date_tags  = "".join(_tag(d, _DATE_COLOR.get(d,'#64748b'), "📅 ")
+                              for d in _fs.get("date", ["전체"]))
+        _dur_tags   = "".join(_tag(d, _DUR_COLOR.get(d,'#64748b'), "⏱ ")
+                              for d in _fs.get("dur", ["전체"]))
+        _kw_tags    = "".join(_tag(k, "#1e40af", "🔍 ") for k in _fs.get("kws", []))
+
+        _vtype = _fs.get("vtype","전체")
+        _vtype_c = {"전체":"#64748b","동영상":"#2563eb","쇼츠":"#dc2626"}.get(_vtype,"#64748b")
+        _vtype_tag = _tag(_vtype, _vtype_c, "📹 ")
+        _max_tag   = _tag(f"최대 {_fs.get('max',20)}개", "#475569", "📦 ")
+
+        _dm = st.session_state.get("dark_mode", False)
+        _panel_bg  = "#1a1c30" if _dm else "#f8faff"
+        _panel_bd  = "#2e3157" if _dm else "#dde5f5"
+        _title_c   = "#8a90c8" if _dm else "#64748b"
+
+        st.markdown(f"""
+<div style='background:{_panel_bg};border:1px solid {_panel_bd};border-radius:14px;
+padding:14px 18px;margin-bottom:18px'>
+  <div style='font-size:.72rem;font-weight:700;color:{_title_c};
+  text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px'>
+  🔎 현재 적용된 검색 조건</div>
+  <div style='display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:6px'>
+    <span style='font-size:.72rem;color:{_title_c};min-width:50px'>키워드</span>
+    {_kw_tags}
+  </div>
+  <div style='display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:6px'>
+    <span style='font-size:.72rem;color:{_title_c};min-width:50px'>정렬</span>
+    {_sort_tags}
+  </div>
+  <div style='display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:6px'>
+    <span style='font-size:.72rem;color:{_title_c};min-width:50px'>기간</span>
+    {_date_tags}
+  </div>
+  <div style='display:flex;flex-wrap:wrap;gap:4px;align-items:center'>
+    <span style='font-size:.72rem;color:{_title_c};min-width:50px'>길이</span>
+    {_dur_tags}
+    {_vtype_tag}
+    {_max_tag}
+  </div>
+</div>""", unsafe_allow_html=True)
+
     # ── 탭 구성 ───────────────────────────────────────────────
     tab1, tab2, tab3, tab4 = st.tabs([
         "🎬 영상 목록", "📊 채널 통계", "🔑 키워드 분석", "📜 대본 전문"
@@ -3461,6 +5349,20 @@ streamlit run youtube_web_app.py
                     "⭐":"<span class='badge-new'>⭐ 우수</span>",
                 }.get(v.get("badge","▶"), f"<span class='badge-norm'>#{v.get('rank',0)}위</span>")
                 badge_html = badge_html + (" " + _shorts_badge if _shorts_badge else "")
+
+                # ── 정렬 출처 태그 ──
+                _STAG_C = {"조회수순":"#2563eb","최신순":"#059669","관련성순":"#d97706","평점순":"#7c3aed"}
+                _STAG_ICON = {"조회수순":"👁","최신순":"🕐","관련성순":"🎯","평점순":"⭐"}
+                _src_tags_html = "".join(
+                    f"<span style='display:inline-flex;align-items:center;gap:2px;"
+                    f"background:{_STAG_C.get(s,'#64748b')}18;"
+                    f"border:1px solid {_STAG_C.get(s,'#64748b')}55;"
+                    f"border-radius:10px;padding:2px 8px;"
+                    f"font-size:.72rem;font-weight:600;color:{_STAG_C.get(s,'#64748b')};margin:1px 2px'>"
+                    f"{_STAG_ICON.get(s,'')} {s}</span>"
+                    for s in v.get("sort_sources", [])
+                )
+                badge_html = badge_html + (" " + _src_tags_html if _src_tags_html else "")
 
                 with st.expander(f"{v.get('badge','▶')} #{v.get('rank',0)}위  {v['title']}", expanded=(v.get('rank',0)<=3)):
                     col_img, col_info = st.columns([1, 3])
