@@ -2,7 +2,7 @@
 # 🎬 YouTube 분석 웹앱 v1.0 (Streamlit)
 #
 # 설치: pip install streamlit requests youtube-transcript-api
-#       openpyxl gspread google-auth
+#       openpyxl gspread google-auth pytrends
 # 실행: streamlit run youtube_web_app.py
 # ================================================================
 import streamlit as st
@@ -1573,31 +1573,33 @@ def get_hot_subtopics(api_key: str, main_keyword: str, top_n: int = 10):
     """
     대표 키워드 → 실시간 인기 서브 주제 TOP N 추출
 
-    전략:
-      A) YouTube API → 최근 1년 내 고조회수 영상 50개 수집
-         → 실제 영상 제목을 그대로 사용 (조회수 + 최신성 스코어)
-      B) YouTube 자동완성 → 실시간 인기 검색어로 보완
-      C) Google Trends → pytrends 급상승 검색어 보완 (설치 시)
+    소스별 비율 고정 (top_n=10 기준):
+      B) YouTube 자동완성 (트렌드 연관검색어)  → 60%  (6개)
+      C) Google Trends 급상승 연관검색어        → 40%  (4개)
+      A) YouTube 인기영상 제목                  →  0%  (미사용)
+
+    각 소스 내에서는 자체 기준(순위·급상승률·조회수×최신성)으로 정렬.
+    소스가 부족할 경우 YouTube 자동완성으로 보완.
 
     Returns:
         (list[dict], None) 또는 (None, error_str)
-        dict = {
-            "topic":   str,   # 영상 제목 or 검색어
-            "score":   int,   # 정렬용 스코어
-            "label":   str,   # 뱃지 ("🔥 인기영상" / "🔴 실시간" / "📈 급상승")
-            "source":  str,   # "video" / "suggest" / "trends"
-            "views":   str,   # "1,234만회" 또는 ""
-            "date":    str,   # "3일 전" 또는 ""
-            "channel": str,   # 채널명 또는 ""
-        }
     """
     import json as _json
     import urllib.parse as _up
     from datetime import datetime as _dt, timezone as _tz
 
-    seen    = set()
-    results = []
+    # ── 소스별 슬롯 계산 ───────────────────────────────────────
+    n_suggest = max(1, round(top_n * 0.6))          # 60%  → 6
+    n_trends  = top_n - n_suggest                   # 40%  → 4
+    n_video   = 0                                   # 미사용
 
+    # 각 소스별 독립 버킷
+    bucket_suggest = []   # dict 리스트
+    bucket_trends  = []
+    bucket_video   = []
+    seen_keys = set()
+
+    # ── 헬퍼 ───────────────────────────────────────────────────
     def _fmt_views(n):
         if n >= 100_000_000: return f"{n//100_000_000}억회"
         if n >= 10_000:      return f"{n/10_000:.0f}만회"
@@ -1606,24 +1608,23 @@ def get_hot_subtopics(api_key: str, main_keyword: str, top_n: int = 10):
 
     def _days_ago(iso_str):
         try:
-            pub = _dt.fromisoformat(iso_str.replace("Z", "+00:00"))
+            pub  = _dt.fromisoformat(iso_str.replace("Z", "+00:00"))
             diff = _dt.now(_tz.utc) - pub
-            d = diff.days
-            if d == 0:   return "오늘"
-            if d == 1:   return "1일 전"
-            if d < 7:    return f"{d}일 전"
-            if d < 30:   return f"{d//7}주 전"
-            if d < 365:  return f"{d//30}개월 전"
+            d    = diff.days
+            if d == 0:  return "오늘"
+            if d == 1:  return "1일 전"
+            if d < 7:   return f"{d}일 전"
+            if d < 30:  return f"{d//7}주 전"
+            if d < 365: return f"{d//30}개월 전"
             return f"{d//365}년 전"
         except Exception:
             return ""
 
     def _recency_factor(iso_str):
-        """최신일수록 높은 가중치: 7일 이내 2.0, 30일 2배, 365일 0.5"""
         try:
-            pub = _dt.fromisoformat(iso_str.replace("Z", "+00:00"))
+            pub  = _dt.fromisoformat(iso_str.replace("Z", "+00:00"))
             diff = _dt.now(_tz.utc) - pub
-            d = diff.days
+            d    = diff.days
             if d <= 7:   return 2.0
             if d <= 30:  return 1.5
             if d <= 90:  return 1.2
@@ -1632,32 +1633,120 @@ def get_hot_subtopics(api_key: str, main_keyword: str, top_n: int = 10):
         except Exception:
             return 1.0
 
-    def _add(topic, score, label, source, views="", date="", channel="", raw_views=0, trend_val=0, sug_rank=0, sparkline=None):
-        key = topic.strip().lower()
-        if not key or len(key) < 2:
-            return
-        if key not in seen:
-            seen.add(key)
-            results.append({
-                "topic":      topic.strip(),
-                "score":      score,
-                "label":      label,
-                "source":     source,
-                "views":      views,
-                "raw_views":  raw_views,
-                "trend_val":  trend_val,
-                "sug_rank":   sug_rank,
-                "date":       date,
-                "channel":    channel,
-                "sparkline":  sparkline or [],  # 7일 트렌드 포인트 [0-100]
-            })
+    def _make_item(topic, label, source, score=0, views="", date="",
+                   channel="", raw_views=0, trend_val=0, sug_rank=0,
+                   sparkline=None):
+        return {
+            "topic":     topic.strip(),
+            "score":     score,         # 소스 내 원시 점수 (정렬용)
+            "label":     label,
+            "source":    source,
+            "views":     views,
+            "raw_views": raw_views,
+            "trend_val": trend_val,
+            "sug_rank":  sug_rank,
+            "date":      date,
+            "channel":   channel,
+            "sparkline": sparkline or [],
+        }
 
     # ──────────────────────────────────────────────────────────────
-    # A) YouTube API: 최근 고조회수 영상 50개 → 실제 제목 사용
+    # B) YouTube 자동완성 — 트렌드 연관검색어 (60% 슬롯)
     # ──────────────────────────────────────────────────────────────
-    if api_key:
+    try:
+        _sug_url = (
+            "https://suggestqueries.google.com/complete/search"
+            f"?client=firefox&ds=yt"
+            f"&q={_up.quote(main_keyword)}"
+            f"&hl=ko&gl=KR"
+        )
+        _sr = requests.get(
+            _sug_url, timeout=8,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        )
+        if _sr.status_code == 200:
+            _data = _json.loads(_sr.text)
+            _sugs = _data[1] if len(_data) > 1 else []
+            for _rank, _s in enumerate(_sugs[:20]):   # 여유분 20개 수집
+                _topic = _s if isinstance(_s, str) else _s[0]
+                if not _topic:
+                    continue
+                _key = _topic.strip().lower()
+                if _key == main_keyword.strip().lower() or len(_key) < 2:
+                    continue
+                if _key not in seen_keys:
+                    seen_keys.add(_key)
+                    bucket_suggest.append(
+                        _make_item(
+                            _topic,
+                            "🔴 실시간검색", "suggest",
+                            score=20 - _rank,   # 1위=19, 20위=0
+                            date="실시간",
+                            sug_rank=_rank + 1,
+                        )
+                    )
+    except Exception:
+        pass
+
+    # ──────────────────────────────────────────────────────────────
+    # C) Google Trends — 급상승 연관검색어 (40% 슬롯)
+    # ──────────────────────────────────────────────────────────────
+    _trends_sparklines = {}
+    _trends_available  = False
+    try:
+        from pytrends.request import TrendReq as _TR
+        _pt = _TR(hl="ko-KR", tz=540, timeout=(8, 20))
+        _pt.build_payload([main_keyword], cat=0, timeframe="now 7-d", geo="KR")
+        # 메인 키워드 7일 스파크라인
         try:
-            # 1) 검색 (최신순 + 관련성, 50개)
+            _iot = _pt.interest_over_time()
+            if _iot is not None and not _iot.empty and main_keyword in _iot.columns:
+                _vals   = _iot[main_keyword].tolist()
+                _sl_raw = _vals[-7:] if len(_vals) >= 7 else _vals
+                _sl_max = max(_sl_raw) if _sl_raw else 1
+                _sl_min = min(_sl_raw) if _sl_raw else 0
+                _rng    = _sl_max - _sl_min or 1
+                _trends_sparklines[main_keyword] = [
+                    round((_v - _sl_min) / _rng * 100) for _v in _sl_raw
+                ]
+        except Exception:
+            pass
+        _rel        = _pt.related_queries()
+        _rising_df  = _rel.get(main_keyword, {}).get("rising")
+        if _rising_df is not None and not _rising_df.empty:
+            _trends_available = True
+            for _, _row in _rising_df.head(n_trends * 3).iterrows():  # 여유분
+                _q = str(_row.get("query", "")).strip()
+                _v = int(_row.get("value", 0))
+                if not _q:
+                    continue
+                _key = _q.lower()
+                if _key in seen_keys or len(_key) < 2:
+                    continue
+                seen_keys.add(_key)
+                # 급상승 스파크라인 시뮬레이션
+                _sp = [max(0, min(100, 20 + int(_v/5)*_i//6 + (_i*8)))
+                       for _i in range(7)]
+                bucket_trends.append(
+                    _make_item(
+                        _q,
+                        "📈 급상승트렌드", "trends",
+                        score=_v,
+                        date="급상승",
+                        trend_val=_v,
+                        sparkline=_sp,
+                    )
+                )
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    # ──────────────────────────────────────────────────────────────
+    # A) YouTube API — 인기영상 제목 (미사용 — 슬롯 0)
+    # ──────────────────────────────────────────────────────────────
+    if api_key and n_video > 0:
+        try:
             _r1 = requests.get(
                 "https://www.googleapis.com/youtube/v3/search",
                 params={
@@ -1675,12 +1764,9 @@ def get_hot_subtopics(api_key: str, main_keyword: str, top_n: int = 10):
                 timeout=10
             )
             _d1 = _r1.json()
-            if "error" in _d1:
-                pass  # API 오류 → 폴백으로
-            else:
+            if "error" not in _d1:
                 _vids = [i["id"]["videoId"] for i in _d1.get("items", [])]
                 if _vids:
-                    # 2) 상세 정보 (제목 + 조회수 + 업로드일)
                     _r2 = requests.get(
                         "https://www.googleapis.com/youtube/v3/videos",
                         params={
@@ -1691,8 +1777,6 @@ def get_hot_subtopics(api_key: str, main_keyword: str, top_n: int = 10):
                         timeout=10
                     )
                     _items = _r2.json().get("items", [])
-
-                    # 조회수 + 최신성 스코어로 정렬
                     _scored = []
                     for _item in _items:
                         _title   = _item["snippet"].get("title", "").strip()
@@ -1703,122 +1787,129 @@ def get_hot_subtopics(api_key: str, main_keyword: str, top_n: int = 10):
                             continue
                         _sc = int(_views * _recency_factor(_pub))
                         _scored.append((_sc, _views, _pub, _title, _channel))
-
-                    # 스코어 내림차순 정렬
                     _scored.sort(key=lambda x: x[0], reverse=True)
-
-                    # 상위 영상 제목을 그대로 서브 주제로 사용
-                    for _sc, _views, _pub, _title, _ch in _scored[:top_n]:
-                        _add(
-                            _title, _sc,
-                            "🔥 인기영상", "video",
-                            views=_fmt_views(_views),
-                            date=_days_ago(_pub),
-                            channel=_ch,
-                            raw_views=_views,
+                    for _sc, _views, _pub, _title, _ch in _scored[:n_video * 5]:  # 여유분
+                        _key = _title.strip().lower()
+                        if _key in seen_keys or len(_key) < 2:
+                            continue
+                        seen_keys.add(_key)
+                        bucket_video.append(
+                            _make_item(
+                                _title,
+                                "🔥 인기영상", "video",
+                                score=_sc,
+                                views=_fmt_views(_views),
+                                date=_days_ago(_pub),
+                                channel=_ch,
+                                raw_views=_views,
+                            )
                         )
         except Exception:
             pass
 
     # ──────────────────────────────────────────────────────────────
-    # B) YouTube 자동완성 (실시간 인기 검색어 → 부족분 보완)
+    # 소스별 정렬 + 슬롯 선택
     # ──────────────────────────────────────────────────────────────
-    try:
-        _sug_url = (
-            "https://suggestqueries.google.com/complete/search"
-            f"?client=firefox&ds=yt"
-            f"&q={_up.quote(main_keyword)}"
-            f"&hl=ko&gl=KR"
-        )
-        _sr = requests.get(
-            _sug_url, timeout=8,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        )
-        if _sr.status_code == 200:
-            _data = _json.loads(_sr.text)
-            _sugs = _data[1] if len(_data) > 1 else []
-            for _rank, _s in enumerate(_sugs[:10]):
-                _topic = _s if isinstance(_s, str) else _s[0]
-                if _topic and _topic.strip().lower() != main_keyword.strip().lower():
-                    _add(_topic, 8_000_000 - _rank * 100_000,
-                         "🔴 실시간검색", "suggest",
-                         views="", date="실시간",
-                         sug_rank=_rank + 1)
-    except Exception:
-        pass
+    bucket_suggest.sort(key=lambda x: x["score"], reverse=True)
+    bucket_trends.sort(key=lambda x:  x["score"], reverse=True)
+    bucket_video.sort(key=lambda x:   x["score"], reverse=True)
+
+    selected_suggest = bucket_suggest[:n_suggest]
+    selected_trends  = bucket_trends[:n_trends]
+    selected_video   = bucket_video[:n_video]
+
+    # 부족분 보완: trends 부족 → suggest로, video 부족 → suggest로
+    shortage = (n_suggest - len(selected_suggest)) +                (n_trends  - len(selected_trends))  +                (n_video   - len(selected_video))
+    if shortage > 0:
+        # 남은 suggest 여유분으로 보완 (suggest가 가장 많음)
+        _extra_src = [b for b in bucket_suggest if b not in selected_suggest]
+        _extra_src += [b for b in bucket_video  if b not in selected_video]
+        _extra_src += [b for b in bucket_trends if b not in selected_trends]
+        _extra_used = set()
+        for _b in _extra_src:
+            if shortage <= 0:
+                break
+            _key = _b["topic"].strip().lower()
+            if _key not in _extra_used:
+                _extra_used.add(_key)
+                # trends가 비면 trends 슬롯에 채움
+                if len(selected_trends) < n_trends:
+                    selected_trends.append(_b)
+                elif len(selected_suggest) < n_suggest:
+                    selected_suggest.append(_b)
+                shortage -= 1
 
     # ──────────────────────────────────────────────────────────────
-    # C) Google Trends 급상승 (pytrends, 설치된 경우)
+    # 소스 내 정규화 점수 (0~100) 부여 → 전체 합치기
     # ──────────────────────────────────────────────────────────────
-    _trends_sparklines = {}  # keyword → [7 data points]
-    try:
-        from pytrends.request import TrendReq as _TR
-        _pt = _TR(hl="ko-KR", tz=540, timeout=(8, 20))
-        _pt.build_payload([main_keyword], cat=0, timeframe="now 7-d", geo="KR")
-        # 메인 키워드 7일 트렌드 (스파크라인용)
-        try:
-            _iot = _pt.interest_over_time()
-            if _iot is not None and not _iot.empty and main_keyword in _iot.columns:
-                _vals = _iot[main_keyword].tolist()
-                # 최근 7포인트로 정규화 (0-100)
-                _sl_raw = _vals[-7:] if len(_vals) >= 7 else _vals
-                _sl_max = max(_sl_raw) if _sl_raw else 1
-                _sl_min = min(_sl_raw) if _sl_raw else 0
-                _rng = _sl_max - _sl_min or 1
-                _trends_sparklines[main_keyword] = [
-                    round((_v - _sl_min) / _rng * 100) for _v in _sl_raw
-                ]
-        except Exception:
-            pass
-        _rel = _pt.related_queries()
-        _rising_df = _rel.get(main_keyword, {}).get("rising")
-        if _rising_df is not None and not _rising_df.empty:
-            for _, _row in _rising_df.head(5).iterrows():
-                _q  = str(_row.get("query", "")).strip()
-                _v  = int(_row.get("value", 0))
-                if _q:
-                    # 급상승 → 우상향 스파크라인 시뮬레이션
-                    _sp = [max(0, min(100, 20 + int(_v/5)*_i//6 + (_i*8))) for _i in range(7)]
-                    _add(_q, 5_000_000 + _v * 500,
-                         "📈 급상승트렌드", "trends",
-                         date="급상승",
-                         trend_val=_v,
-                         sparkline=_sp)
-    except ImportError:
-        pass
-    except Exception:
-        pass
+    def _norm_scores(items):
+        """소스 내 score를 0~100으로 정규화"""
+        if not items:
+            return []
+        max_s = max(it["score"] for it in items) or 1
+        min_s = min(it["score"] for it in items)
+        rng   = max_s - min_s or 1
+        result = []
+        for it in items:
+            it = dict(it)  # 복사
+            it["norm_score"] = round((it["score"] - min_s) / rng * 100)
+            result.append(it)
+        return result
+
+    final = (
+        _norm_scores(selected_suggest) +
+        _norm_scores(selected_trends)  +
+        _norm_scores(selected_video)
+    )
+
+    if not final:
+        return None, (
+            f"'{main_keyword}' 관련 서브 주제를 찾을 수 없습니다. "
+            "API 키를 확인하거나 잠시 후 다시 시도하세요."
+        )
 
     # ──────────────────────────────────────────────────────────────
-    # D) 스파크라인 없는 항목: 스코어 기반 시뮬레이션 보완
+    # 소스 우선순위 표시용 정렬
+    #   표시 순서: suggest(1위→최하위) → trends(1위→최하위) → video(1위→최하위)
+    #   각 소스 내에서는 norm_score 내림차순
     # ──────────────────────────────────────────────────────────────
-    _mk_sl = _trends_sparklines.get(main_keyword, [])
-    for _r in results:
+    _order = {"suggest": 0, "trends": 1, "video": 2}
+    final.sort(key=lambda x: (_order.get(x["source"], 9), -x["norm_score"]))
+
+    # UI 바 너비 계산을 위해 score 필드에 norm_score 복사
+    for it in final:
+        it["score"] = it["norm_score"]
+
+    # ──────────────────────────────────────────────────────────────
+    # D) 스파크라인 없는 항목 시뮬레이션 보완
+    # ──────────────────────────────────────────────────────────────
+    import random as _rnd
+    for _r in final:
         if not _r.get("sparkline"):
-            _sc  = _r["score"]
             _src = _r["source"]
+            _ns  = _r.get("norm_score", 50)
             if _src == "video":
-                # 인기 영상 → 안정적 고점 형태 (작은 노이즈)
-                import random as _rnd
                 _rnd.seed(hash(_r["topic"]) % 9999)
-                _base = 55 + min(40, int(_sc / 3_000_000 * 40))
-                _r["sparkline"] = [max(5, min(100, _base + _rnd.randint(-12, 12))) for _ in range(7)]
-                _r["sparkline"][-1] = min(100, _r["sparkline"][-1] + 5)  # 최근값 소폭 상승
+                _base = 55 + min(40, int(_ns / 100 * 40))
+                _r["sparkline"] = [
+                    max(5, min(100, _base + _rnd.randint(-12, 12)))
+                    for _ in range(7)
+                ]
+                _r["sparkline"][-1] = min(100, _r["sparkline"][-1] + 5)
             elif _src == "suggest":
-                # 실시간 검색 → 최근 급등 형태
                 _rank = _r.get("sug_rank", 5)
-                _sp = [max(5, 30 + (7-_rank)*5 + int(_i * (100 - 30 - (7-_rank)*5)/6)) for _i in range(7)]
-                _r["sparkline"] = _sp
+                _r["sparkline"] = [
+                    max(5, 30 + (7 - _rank) * 5 +
+                        int(_i * (100 - 30 - (7 - _rank) * 5) / 6))
+                    for _i in range(7)
+                ]
+            else:
+                _r["sparkline"] = [
+                    max(5, min(100, 40 + int(_i * _ns / 6 / 2)))
+                    for _i in range(7)
+                ]
 
-    if not results:
-        return None, f"'{main_keyword}' 관련 서브 주제를 찾을 수 없습니다. API 키를 확인하거나 잠시 후 다시 시도하세요."
-
-    # 최종 정렬 + 상위 N개 반환
-    try:
-        results.sort(key=lambda x: x.get("score", 0), reverse=True)
-    except Exception:
-        pass
-    return results[:top_n], None
+    return final[:top_n], None
 
 
 def fetch_video_details(api_key, video_ids):
@@ -3516,7 +3607,22 @@ def main():
                 if _src_count.get("trends"):   _src_labels.append(f"📈급상승트렌드 {_src_count['trends']}개")
 
                 # 출처 칩
+                # ── pytrends 미설치 안내 ────────────────────────────
+                try:
+                    import pytrends as _pyt_check
+                    _pytrends_ok = True
+                except ImportError:
+                    _pytrends_ok = False
+                if not _pytrends_ok:
+                    st.warning(
+                        "⚠️ **Google Trends(pytrends) 미설치** — Google Trends 결과가 빠져 있습니다.  \n"
+                        "터미널에서 아래 명령어를 실행 후 앱을 재시작하세요:  \n"
+                        "```bash\npip install pytrends\n```",
+                        icon=None
+                    )
+
                 _chip_html = "<div style='display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 8px 0'>"
+
                 _chip_colors = {"video":"#fff1ee:#e55a2b", "suggest":"#fff0f0:#d32f2f", "trends":"#eff6ff:#1565c0"}
                 for _src_k, _src_label in [("video","🔥 인기영상"), ("suggest","🔴 실시간"), ("trends","📈 급상승")]:
                     if _src_count.get(_src_k):
@@ -5077,8 +5183,11 @@ def main():
                 st.markdown("""
 **① 필수 라이브러리 설치**
 ```bash
-pip install streamlit requests youtube-transcript-api openpyxl gspread google-auth
+pip install streamlit requests youtube-transcript-api openpyxl gspread google-auth pytrends
 ```
+
+> 💡 **pytrends**: Google Trends 연관검색어(급상승) 수집에 필요합니다.  
+> 미설치 시 서브주제 검색에서 Google Trends 결과(30% 슬롯)가 YouTube 자동완성으로 대체됩니다.
 
 **② YouTube API 키 준비**
 1. [Google Cloud Console](https://console.cloud.google.com) 접속
