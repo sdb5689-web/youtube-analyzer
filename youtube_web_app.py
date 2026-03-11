@@ -2241,16 +2241,17 @@ def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
     # v1beta 모델 목록 (2026년 3월 기준 — YouTube URL 직접 분석은 v1beta 전용)
     # gemini-2.0-flash/lite는 2026년부터 Deprecated → gemini-2.5-flash 우선
     _rest_models = [
-        ("v1beta", "gemini-2.5-flash"),          # 현재 stable 최신
-        ("v1beta", "gemini-2.5-flash-lite"),     # 경량 최신
-        ("v1beta", "gemini-2.0-flash"),          # 이전 세대 (deprecated)
-        ("v1beta", "gemini-1.5-flash"),          # 구버전 폴백
-        ("v1beta", "gemini-1.5-pro"),            # 구버전 폴백
+        ("v1beta", "gemini-2.5-flash-preview-05-20"),  # 최신 안정 (2026.03)
+        ("v1beta", "gemini-2.5-flash"),                # stable 최신
+        ("v1beta", "gemini-2.5-flash-lite"),           # 경량 최신
+        ("v1beta", "gemini-1.5-flash"),                # 구버전 폴백
+        ("v1beta", "gemini-1.5-pro"),                  # 구버전 폴백
     ]
     # SDK 폴백용 모델 목록
     _models = [
+        "gemini-2.5-flash-preview-05-20",  # 최신 안정 (2026.03)
         "gemini-2.5-flash",
-        "gemini-2.0-flash",
+        "gemini-2.5-flash-lite",
         "gemini-1.5-flash",
         "gemini-1.5-pro",
     ]
@@ -2361,8 +2362,9 @@ def gemini_analyze_video(video_id: str, gemini_api_key: str) -> str:
         client = _genai_new.Client(api_key=gemini_api_key)
         # YouTube URL 직접 분석 지원 모델 (최신순)
         _new_sdk_models = [
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
+            "gemini-2.5-flash-preview-05-20",  # 최신 안정 (2026.03)
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
             "gemini-1.5-flash",
             "gemini-1.5-pro",
         ]
