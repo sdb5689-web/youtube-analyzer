@@ -5,6 +5,31 @@
 #       openpyxl gspread google-auth pytrends
 # 실행: streamlit run youtube_web_app.py
 # ================================================================
+# ================================================================
+# 필수 패키지 자동 설치 (Streamlit Cloud / 서버 환경 대응)
+# ================================================================
+import subprocess as _sp, sys as _sys
+
+def _ensure(pkg, import_name=None):
+    """설치되지 않은 패키지를 자동 설치"""
+    try:
+        __import__(import_name or pkg)
+    except ImportError:
+        _sp.run(
+            [_sys.executable, "-m", "pip", "install", pkg, "--quiet"],
+            check=False
+        )
+
+_ensure("pytrends")
+_ensure("streamlit-sortables", "streamlit_sortables")
+_ensure("gspread")
+_ensure("google-auth",   "google.oauth2")
+_ensure("openpyxl")
+_ensure("youtube-transcript-api", "youtube_transcript_api")
+_ensure("openai")
+_ensure("lxml")
+# ================================================================
+
 import streamlit as st
 try:
     from streamlit_sortables import sort_items as _sort_items
