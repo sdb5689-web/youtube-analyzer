@@ -1937,6 +1937,56 @@ def get_hot_subtopics(api_key: str, main_keyword: str, top_n: int = 10):
     return final[:top_n], None
 
 
+
+# ── 쿠팡 링크 감지 헬퍼 ─────────────────────────────────────────
+def has_coupang_link(text: str) -> bool:
+    """영상 설명 또는 댓글 텍스트에 쿠팡 상품/파트너스 링크가 포함되어 있는지 확인"""
+    if not text:
+        return False
+    t = text.lower()
+    # 쿠팡 파트너스 링크 패턴
+    patterns = [
+        "link.coupang.com",   # 파트너스 단축 URL
+        "coupang.com",        # 직접 링크
+        "쿠팡파트너스",
+        "쿠팡 파트너스",
+        "이 포스팅은 쿠팡",   # 파트너스 고지 문구
+        "쿠팡상품",
+        "쿠팡 상품",
+    ]
+    return any(p in t for p in patterns)
+
+
+def fetch_pinned_comment(api_key: str, video_id: str) -> str:
+    """
+    YouTube commentThreads API로 첫 번째 댓글(고정댓글이 있으면 1순위)을 가져옴.
+    고정댓글은 API order=relevance 시 첫 번째로 반환됨.
+    Returns: 댓글 텍스트 (없으면 "")
+    """
+    try:
+        r = requests.get(
+            "https://www.googleapis.com/youtube/v3/commentThreads",
+            params={
+                "key": api_key,
+                "videoId": video_id,
+                "part": "snippet",
+                "order": "relevance",   # 고정댓글이 최상단에 옴
+                "maxResults": 3,        # 고정댓글 + 상위 2개 확인
+                "textFormat": "plainText",
+            },
+            timeout=8,
+        )
+        data = r.json()
+        texts = []
+        for item in data.get("items", []):
+            top = item.get("snippet", {}).get("topLevelComment", {})
+            body = top.get("snippet", {}).get("textDisplay", "")
+            if body:
+                texts.append(body)
+        return " ".join(texts)
+    except Exception:
+        return ""
+
 def fetch_video_details(api_key, video_ids):
     videos = []
     for i in range(0, len(video_ids), 50):
@@ -4736,6 +4786,26 @@ def main():
             help="전체: 모든 영상 | 동영상: 60초 초과 일반 영상 | 쇼츠: 60초 이하 세로형 영상"
         )
 
+        # ── 쿠팡 상품링크 우선 검색 ─────────────────────────────────
+        st.markdown(
+            "<div style='font-size:.78rem;font-weight:700;color:#94a3b8;"
+            "text-transform:uppercase;letter-spacing:.06em;margin:10px 0 4px 0'>"
+            "🛒 쿠팡 필터</div>", unsafe_allow_html=True
+        )
+        coupang_priority = st.checkbox(
+            "🛒 쿠팡 상품링크 포함 영상 우선",
+            value=False,
+            key="coupang_priority_chk",
+            help=(
+                "체크 시: 영상 설명란(Description) 또는 고정댓글에 "
+                "쿠팡 파트너스/상품 링크(link.coupang.com, coupang.com 등)가 "
+                "포함된 영상을 결과 상단에 우선 표시합니다.\n\n"
+                "⚠️ 고정댓글 확인 시 영상당 API 호출 1회 추가됩니다."
+            ),
+        )
+        if coupang_priority:
+            st.caption("🔍 설명란 + 고정댓글에서 쿠팡 링크를 검색합니다.")
+
         fetch_transcript = st.checkbox(
             "📜 자막(대본) 가져오기",
             value=True,
@@ -5062,11 +5132,44 @@ def main():
                     progress_bar.progress((ki+1)/total_steps)
                     continue
             # max_count 초과 제거 (pre-filter 감안해 더 많이 가져왔으므로)
-            videos = videos[:max_count]
+            # 쿠팡 우선 검색 시 더 많은 영상을 가져와서 필터 후 max_count 적용
+            if coupang_priority:
+                # 최대 50개 또는 max_count*3까지 가져와서 쿠팡 포함 영상 우선 선별
+                videos = videos[:max(max_count * 3, 30)]
+            else:
+                videos = videos[:max_count]
 
             # 3) 구독자
             status_text.info(f"👥 [{kw}] 구독자 수 수집 중...")
             videos = fetch_subscribers(api_key, videos)
+
+            # 3-1) 🛒 쿠팡 상품링크 우선 정렬 ──────────────────────────────
+            if coupang_priority:
+                status_text.info(f"🛒 [{kw}] 쿠팡 링크 확인 중... ({len(videos)}개 영상)")
+                for v in videos:
+                    # 설명란 먼저 확인 (추가 API 불필요)
+                    _has = has_coupang_link(v.get("description", ""))
+                    # 설명란에 없으면 고정댓글 확인 (API 1회 추가)
+                    if not _has:
+                        _pinned = fetch_pinned_comment(api_key, v["videoId"])
+                        _has = has_coupang_link(_pinned)
+                        v["pinned_comment"] = _pinned  # 나중에 UI 표시용
+                    else:
+                        v["pinned_comment"] = ""
+                    v["has_coupang"] = _has
+
+                # 쿠팡 링크 포함 영상을 상단으로 정렬 (안정 정렬 유지)
+                videos.sort(key=lambda x: (0 if x.get("has_coupang") else 1))
+                _coupang_count = sum(1 for v in videos if v.get("has_coupang"))
+                if _coupang_count > 0:
+                    st.success(f"✅ [{kw}] 쿠팡 링크 포함 영상 {_coupang_count}개 발견 → 상단 배치")
+                else:
+                    st.info(f"ℹ️ [{kw}] 쿠팡 링크 포함 영상이 없습니다. 기존 정렬 유지.")
+                videos = videos[:max_count]  # 최종 max_count로 자름
+            else:
+                for v in videos:
+                    v["has_coupang"] = False
+                    v["pinned_comment"] = ""
 
             # 4) 자막 → Gemini / Whisper 폴백
             if fetch_transcript:
@@ -5171,12 +5274,13 @@ def main():
         st.session_state["channel_stats"] = channel_stats
         st.session_state["sort_label"]    = sort_option
         st.session_state["filter_summary"] = {
-            "sort":  sort_options,
-            "date":  _date_sel,
-            "dur":   _dur_sel,
-            "vtype": video_type,
-            "max":   max_count,
-            "kws":   keywords,
+            "sort":     sort_options,
+            "date":     _date_sel,
+            "dur":      _dur_sel,
+            "vtype":    video_type,
+            "max":      max_count,
+            "kws":      keywords,
+            "coupang":  coupang_priority,
         }
         st.session_state["creds_dict"]    = creds_dict
         st.session_state["share_email"]   = share_email
@@ -5470,6 +5574,10 @@ streamlit run youtube_web_app.py
         _vtype_c = {"전체":"#64748b","동영상":"#2563eb","쇼츠":"#dc2626"}.get(_vtype,"#64748b")
         _vtype_tag = _tag(_vtype, _vtype_c, "📹 ")
         _max_tag   = _tag(f"최대 {_fs.get('max',20)}개", "#475569", "📦 ")
+        _coupang_tag = (
+            _tag("쿠팡링크 우선", "#f97316", "🛒 ")
+            if _fs.get("coupang") else ""
+        )
 
         _dm = st.session_state.get("dark_mode", False)
         _panel_bg  = "#1a1c30" if _dm else "#f8faff"
@@ -5499,6 +5607,7 @@ padding:14px 18px;margin-bottom:18px'>
     {_dur_tags}
     {_vtype_tag}
     {_max_tag}
+    {_coupang_tag}
   </div>
 </div>""", unsafe_allow_html=True)
 
@@ -5540,7 +5649,8 @@ padding:14px 18px;margin-bottom:18px'>
                 )
                 badge_html = badge_html + (" " + _src_tags_html if _src_tags_html else "")
 
-                with st.expander(f"{v.get('badge','▶')} #{v.get('rank',0)}위  {v['title']}", expanded=(v.get('rank',0)<=3)):
+                _coupang_mark = " 🛒" if v.get("has_coupang") else ""
+                with st.expander(f"{v.get('badge','▶')} #{v.get('rank',0)}위{_coupang_mark}  {v['title']}", expanded=(v.get('rank',0)<=3)):
                     col_img, col_info = st.columns([1, 3])
 
                     with col_img:
@@ -5600,7 +5710,7 @@ f"""
                         st.markdown(f"""
 <div>
 {badge_html}
-<span class='video-title'> {v['title']}</span><br>
+{f"<span style='display:inline-block;background:#f97316;color:#fff;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:6px;vertical-align:middle'>🛒 쿠팡링크</span>" if v.get('has_coupang') else ""}<span class='video-title'> {v['title']}</span><br>
 <span class='video-meta'>
 📺 {v['channelTitle']} &nbsp;|&nbsp; 구독자 {v['subscriberLabel']} &nbsp;|&nbsp;
 ⏱ {v['duration']} &nbsp;|&nbsp; 📅 {v['publishedAt']}
