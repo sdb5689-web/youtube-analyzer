@@ -3611,13 +3611,15 @@ def main():
                 try:
                     import pytrends as _pyt_check
                     _pytrends_ok = True
-                except ImportError:
+                except Exception:
                     _pytrends_ok = False
                 if not _pytrends_ok:
+                    import sys as _sys
+                    _py_path = _sys.executable
                     st.warning(
                         "⚠️ **Google Trends(pytrends) 미설치** — Google Trends 결과가 빠져 있습니다.  \n"
-                        "터미널에서 아래 명령어를 실행 후 앱을 재시작하세요:  \n"
-                        "```bash\npip install pytrends\n```",
+                        "아래 명령어를 터미널에서 실행 후 앱을 재시작하세요:  \n"
+                        f"```bash\n{_py_path} -m pip install pytrends\n```",
                         icon=None
                     )
 
