@@ -635,50 +635,50 @@ details summary [data-testid="stIconMaterial"] {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   사이드바 — 모던 클린 디자인
+   사이드바 — 폭 확장 + 클린 디자인
 ══════════════════════════════════════════════════════════════ */
+
+/* ── 사이드바 폭: 기본 336px → 500px (+50%) ── */
+section[data-testid="stSidebar"],
 [data-testid="stSidebar"] {
+  width: 500px !important;
+  min-width: 500px !important;
+}
+[data-testid="stSidebar"] > div:first-child {
+  width: 500px !important;
+  padding: 1rem 1.2rem 2rem 1.2rem !important;
   overflow-y: auto !important;
   background: #f5f8ff !important;
   border-right: 1px solid #dde5f5 !important;
 }
-[data-testid="stSidebar"] > div:first-child {
-  padding: 0.8rem 0.9rem 1.4rem 0.9rem !important;
-}
+
+/* ── 기본 폰트 ── */
 [data-testid="stSidebar"] * {
   font-family: "Noto Sans KR", -apple-system, BlinkMacSystemFont, sans-serif !important;
-  font-size: .85rem !important;
   letter-spacing: -.01em;
 }
 [data-testid="stSidebar"] hr {
-  margin: 9px 0 !important;
+  margin: 10px 0 !important;
   border: none !important;
-  border-top: 1px solid #dde5f5 !important;
+  border-top: 1.5px solid #e2e8f4 !important;
 }
 
-/* ── 사이드바 헤딩 ── */
-[data-testid="stSidebar"] h2 {
-  font-size: .78rem !important;
-  font-weight: 700 !important;
-  color: var(--c-txt-mute) !important;
+/* ── 섹션 헤딩 ── */
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3 {
+  font-size: .80rem !important;
+  font-weight: 800 !important;
+  color: #64748b !important;
   text-transform: uppercase !important;
   letter-spacing: .07em !important;
-  margin: 14px 0 5px 0 !important;
-}
-[data-testid="stSidebar"] h3 {
-  font-size: .74rem !important;
-  font-weight: 700 !important;
-  color: var(--c-txt-mute) !important;
-  text-transform: uppercase !important;
-  letter-spacing: .06em !important;
-  margin: 9px 0 4px 0 !important;
+  margin: 16px 0 6px 0 !important;
 }
 
-/* ── 사이드바 텍스트 ── */
+/* ── 텍스트 ── */
 [data-testid="stSidebar"] p {
   margin: 0 !important;
-  line-height: 1.48 !important;
-  font-size: .86rem !important;
+  line-height: 1.5 !important;
+  font-size: .88rem !important;
   color: var(--c-txt-sub) !important;
 }
 [data-testid="stSidebar"] label,
@@ -688,7 +688,7 @@ details summary [data-testid="stIconMaterial"] {
 [data-testid="stSidebar"] .stCheckbox > div > label,
 [data-testid="stSidebar"] [class*="label"],
 [data-testid="stSidebar"] [class*="Label"] {
-  font-size: .83rem !important;
+  font-size: .85rem !important;
   font-weight: 600 !important;
   color: var(--c-txt-sub) !important;
   margin-bottom: 4px !important;
@@ -697,26 +697,32 @@ details summary [data-testid="stIconMaterial"] {
 [data-testid="stSidebar"] small,
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {
-  font-size: .68rem !important;
+  font-size: .73rem !important;
   line-height: 1.5 !important;
   color: var(--c-txt-mute) !important;
 }
 
-/* ── 사이드바 입력 ── */
+/* ── 입력 위젯 간격 ── */
 [data-testid="stSidebar"] .stTextInput,
 [data-testid="stSidebar"] .stTextArea,
 [data-testid="stSidebar"] .stSelectbox,
 [data-testid="stSidebar"] .stSlider,
 [data-testid="stSidebar"] .stCheckbox,
 [data-testid="stSidebar"] .stRadio {
-  margin-bottom: 4px !important;
+  margin-bottom: 6px !important;
 }
+[data-testid="stSidebar"] .element-container {
+  margin-bottom: 4px !important;
+  padding-bottom: 0 !important;
+}
+
+/* ── 텍스트 입력 ── */
 [data-testid="stSidebar"] .stTextInput input {
-  font-size: .86rem !important;
+  font-size: .88rem !important;
   border-radius: var(--r-md) !important;
-  border: 1.5px solid #dde5f5 !important;
+  border: 1.5px solid #d8e0f0 !important;
   background: #fff !important;
-  padding: 7px 12px !important;
+  padding: 8px 13px !important;
   color: var(--c-txt) !important;
   box-shadow: var(--sh-xs) !important;
   transition: var(--tr) !important;
@@ -726,51 +732,52 @@ details summary [data-testid="stIconMaterial"] {
   box-shadow: 0 0 0 3px rgba(37,99,235,.12) !important;
 }
 [data-testid="stSidebar"] .stTextArea textarea {
-  font-size: .86rem !important;
-  min-height: 60px !important;
+  font-size: .88rem !important;
   border-radius: var(--r-md) !important;
-  border: 1.5px solid #dde5f5 !important;
+  border: 1.5px solid #d8e0f0 !important;
   background: #fff !important;
   color: var(--c-txt) !important;
   box-shadow: var(--sh-xs) !important;
+  line-height: 1.6 !important;
 }
-[data-testid="stSidebar"] .stSelectbox > div > div {
-  font-size: .86rem !important;
+[data-testid="stSidebar"] .stTextArea textarea:focus {
+  border-color: var(--c-primary) !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12) !important;
+}
+
+/* ── 셀렉트박스 ── */
+[data-testid="stSidebar"] .stSelectbox > div > div,
+[data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] {
+  font-size: .88rem !important;
+  min-height: 34px !important;
   border-radius: var(--r-md) !important;
-  border: 1.5px solid #dde5f5 !important;
+  border: 1.5px solid #d8e0f0 !important;
   background: #fff !important;
   box-shadow: var(--sh-xs) !important;
 }
 [data-testid="stSidebar"] .stRadio label,
 [data-testid="stSidebar"] .stCheckbox label {
-  font-size: .83rem !important;
+  font-size: .86rem !important;
   color: var(--c-txt-sub) !important;
   font-weight: 500 !important;
 }
 
-/* ── element-container 간격 ── */
-[data-testid="stSidebar"] .element-container {
-  margin-bottom: 3px !important;
-  padding-bottom: 0 !important;
-}
-
-/* ── 사이드바 일반 버튼 ── */
+/* ── 일반 버튼 ── */
 [data-testid="stSidebar"] .stButton {
   margin-top: 2px !important;
-  margin-bottom: 2px !important;
+  margin-bottom: 3px !important;
 }
 [data-testid="stSidebar"] .stButton button {
-  font-size: .83rem !important;
+  font-size: .86rem !important;
   font-weight: 600 !important;
-  padding: 5px 12px !important;
-  min-height: 32px !important;
+  padding: 6px 13px !important;
+  min-height: 34px !important;
   height: auto !important;
   border-radius: var(--r-md) !important;
-  border: 1.5px solid #dde5f5 !important;
+  border: 1.5px solid #d8e0f0 !important;
   background: #ffffff !important;
   color: #334155 !important;
   transition: var(--tr) !important;
-  white-space: nowrap !important;
   box-shadow: var(--sh-xs) !important;
 }
 [data-testid="stSidebar"] .stButton button:hover {
@@ -780,49 +787,199 @@ details summary [data-testid="stIconMaterial"] {
   box-shadow: 0 2px 10px rgba(37,99,235,.13) !important;
 }
 
-/* ── 검색 시작 버튼 (Primary) ── */
+/* ── Primary 버튼 (검색/분析 시작) ── */
 [data-testid="stSidebar"] .stButton button[kind="primary"],
 [data-testid="stSidebar"] .stButton button[data-testid="baseButton-primary"] {
   background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-  color: #ffffff !important;
+  color: #fff !important;
   border: none !important;
-  font-size: 1.10rem !important;
+  font-size: 1.05rem !important;
   font-weight: 700 !important;
-  padding: 11px 18px !important;
-  min-height: 44px !important;
+  padding: 12px 18px !important;
+  min-height: 46px !important;
   border-radius: var(--r-md) !important;
-  box-shadow: 0 4px 16px rgba(37,99,235,.38) !important;
+  box-shadow: 0 4px 16px rgba(37,99,235,.35) !important;
   letter-spacing: .01em !important;
 }
 [data-testid="stSidebar"] .stButton button[kind="primary"] p,
-[data-testid="stSidebar"] .stButton button[data-testid="baseButton-primary"] p,
 [data-testid="stSidebar"] .stButton button[kind="primary"] span,
+[data-testid="stSidebar"] .stButton button[data-testid="baseButton-primary"] p,
 [data-testid="stSidebar"] .stButton button[data-testid="baseButton-primary"] span {
-  color: #ffffff !important;
-  font-size: 1.10rem !important;
+  color: #fff !important;
+  font-size: 1.05rem !important;
   font-weight: 700 !important;
 }
 [data-testid="stSidebar"] .stButton button[kind="primary"]:hover,
 [data-testid="stSidebar"] .stButton button[data-testid="baseButton-primary"]:hover {
   background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
-  box-shadow: 0 6px 22px rgba(37,99,235,.48) !important;
+  box-shadow: 0 6px 22px rgba(37,99,235,.46) !important;
   transform: translateY(-1px) !important;
 }
 
-/* ── 아이콘 소형 버튼 ── */
+/* ── 소형 아이콘 버튼 ── */
 [data-testid="stSidebar"] .stButton button[kind="secondary"] {
-  font-size: .83rem !important;
-  padding: 3px 6px !important;
-  min-height: 28px !important;
+  font-size: .82rem !important;
+  padding: 4px 8px !important;
+  min-height: 30px !important;
 }
 
-/* ── 다크모드 토글 버튼 ── */
+/* ── 다크모드 토글 ── */
 [data-testid="stSidebar"] .dark-mode-btn .stButton button {
-  font-size: .78rem !important;
-  padding: 3px 10px !important;
-  min-height: 26px !important;
+  font-size: .80rem !important;
+  padding: 4px 12px !important;
+  min-height: 28px !important;
   border-radius: 20px !important;
   font-weight: 700 !important;
+}
+
+/* ── Expander ── */
+[data-testid="stSidebar"] [data-testid="stExpander"] {
+  margin-bottom: 6px !important;
+  border-radius: var(--r-md) !important;
+  border: 1.5px solid #dde5f5 !important;
+  background: #ffffff !important;
+  overflow: hidden !important;
+  box-shadow: 0 1px 4px rgba(30,64,175,.06) !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+  padding: 9px 14px !important;
+  font-size: .88rem !important;
+  font-weight: 700 !important;
+  min-height: 38px !important;
+  color: #334155 !important;
+  background: #ffffff !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {
+  background: var(--c-primary-soft) !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] > div:last-child {
+  background: #f8faff !important;
+  padding: 10px 13px !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stCaptionContainer"] p,
+[data-testid="stSidebar"] [data-testid="stExpander"] .stCaption p,
+[data-testid="stSidebar"] [data-testid="stExpander"] small {
+  font-size: .71rem !important;
+  line-height: 1.5 !important;
+  color: var(--c-txt-mute) !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stAlert"] p,
+[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stAlert"] {
+  font-size: .71rem !important;
+  padding: 6px 10px !important;
+}
+
+/* ── Alert/Info/Success 박스 ── */
+[data-testid="stSidebar"] [data-testid="stAlert"][data-baseweb="notification"] p,
+[data-testid="stSidebar"] [data-testid="stAlert"][data-baseweb="notification"],
+[data-testid="stSidebar"] .stSuccess p, [data-testid="stSidebar"] .stSuccess,
+[data-testid="stSidebar"] .stInfo p,    [data-testid="stSidebar"] .stInfo {
+  font-size: .73rem !important;
+  line-height: 1.5 !important;
+  padding: 6px 11px !important;
+}
+
+/* ── Multiselect ── */
+[data-testid="stSidebar"] .stMultiSelect > div > div {
+  border-radius: var(--r-md) !important;
+  border: 1.5px solid #d8e0f0 !important;
+  background: #fff !important;
+  font-size: .88rem !important;
+  box-shadow: var(--sh-xs) !important;
+}
+[data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] {
+  background: var(--c-primary-soft) !important;
+  border: 1px solid var(--c-primary-mid) !important;
+  border-radius: 14px !important;
+  color: var(--c-primary-dark) !important;
+  font-size: .80rem !important;
+  font-weight: 600 !important;
+  padding: 2px 9px !important;
+}
+[data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] span {
+  color: var(--c-primary-dark) !important;
+}
+[data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] button {
+  color: var(--c-primary) !important;
+  background: transparent !important;
+  border: none !important;
+  min-height: unset !important;
+  box-shadow: none !important;
+  padding: 0 2px !important;
+}
+
+/* ── Danger 버튼 (삭제) ── */
+[data-testid="stSidebar"] .btn-danger .stButton button {
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  color: #fff !important;
+  border: none !important;
+  font-size: .76rem !important;
+  font-weight: 700 !important;
+  padding: 5px 8px !important;
+  min-height: 32px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(239,68,68,.28) !important;
+  white-space: normal !important;
+  line-height: 1.3 !important;
+  width: 100% !important;
+}
+[data-testid="stSidebar"] .btn-danger .stButton button:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+  box-shadow: 0 4px 14px rgba(220,38,38,.38) !important;
+  transform: translateY(-1px) !important;
+}
+[data-testid="stSidebar"] .btn-danger .stButton button > div,
+[data-testid="stSidebar"] .btn-danger .stButton button > div > div {
+  white-space: normal !important; overflow: visible !important;
+  text-overflow: unset !important; display: block !important; width: 100% !important;
+}
+[data-testid="stSidebar"] .btn-danger .stButton button p,
+[data-testid="stSidebar"] .btn-danger .stButton button span {
+  color: #fff !important; font-size: .76rem !important; font-weight: 700 !important;
+  white-space: normal !important; overflow: visible !important; display: inline !important;
+}
+
+/* ── Success 버튼 (구글시트) ── */
+[data-testid="stSidebar"] .btn-success .stButton button {
+  background: linear-gradient(135deg, #16a34a, #15803d) !important;
+  color: #fff !important;
+  border: none !important;
+  font-size: .76rem !important;
+  font-weight: 700 !important;
+  padding: 5px 8px !important;
+  min-height: 32px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(22,163,74,.28) !important;
+  white-space: normal !important;
+  line-height: 1.3 !important;
+  width: 100% !important;
+}
+[data-testid="stSidebar"] .btn-success .stButton button:hover {
+  background: linear-gradient(135deg, #15803d, #166534) !important;
+  box-shadow: 0 4px 14px rgba(21,128,61,.38) !important;
+  transform: translateY(-1px) !important;
+}
+[data-testid="stSidebar"] .btn-success .stButton button > div,
+[data-testid="stSidebar"] .btn-success .stButton button > div > div {
+  white-space: normal !important; overflow: visible !important;
+  text-overflow: unset !important; display: block !important; width: 100% !important;
+}
+[data-testid="stSidebar"] .btn-success .stButton button p,
+[data-testid="stSidebar"] .btn-success .stButton button span {
+  color: #fff !important; font-size: .76rem !important; font-weight: 700 !important;
+  white-space: normal !important; overflow: visible !important; display: inline !important;
+}
+[data-testid="stSidebar"] .btn-success .stButton button:disabled {
+  background: linear-gradient(135deg, #86efac, #6ee7b7) !important;
+  box-shadow: none !important; opacity: .6 !important;
+  transform: none !important; cursor: not-allowed !important;
+}
+
+/* ── 정렬 우선순위 버튼 (↑↓✕) ── */
+[data-testid="stSidebar"] .stButton button[kind="secondary"] {
+  min-height: 30px !important;
+  padding: 3px 7px !important;
+  font-size: .80rem !important;
 }
 
 /* ── 즐겨찾기 폴더 ── */
@@ -830,23 +987,23 @@ details summary [data-testid="stIconMaterial"] {
   background: var(--c-primary-soft);
   border: 1px solid var(--c-primary-mid);
   border-radius: var(--r-md);
-  padding: 7px 12px;
+  padding: 8px 13px;
   margin: 6px 0 3px 0;
 }
 [data-testid="stSidebar"] .fav-folder-badge {
-  font-size: .71rem;
+  font-size: .73rem;
   background: #dbeafe;
   color: var(--c-primary-dark);
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 20px;
   font-weight: 600;
 }
 
-/* ── 최근 검색 기록 ── */
+/* ── 최근 검색 기록 버튼 ── */
 [data-testid="stSidebar"] .hist-btn .stButton button {
-  font-size: .83rem !important;
-  padding: 4px 11px !important;
-  min-height: 28px !important;
+  font-size: .85rem !important;
+  padding: 5px 12px !important;
+  min-height: 30px !important;
   border-radius: 14px !important;
   background: var(--c-primary-soft) !important;
   border-color: var(--c-primary-mid) !important;
@@ -861,11 +1018,11 @@ details summary [data-testid="stIconMaterial"] {
   border-color: #60a5fa !important;
 }
 
-/* ── 관련영상 link_button ── */
+/* ── 관련영상 링크 버튼 ── */
 [data-testid="stSidebar"] .stLinkButton a {
-  font-size: .83rem !important;
-  padding: 4px 6px !important;
-  min-height: 28px !important;
+  font-size: .85rem !important;
+  padding: 5px 8px !important;
+  min-height: 30px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -880,209 +1037,6 @@ details summary [data-testid="stIconMaterial"] {
 [data-testid="stSidebar"] .stLinkButton a:hover {
   background: #fee2e2 !important;
   border-color: #f87171 !important;
-}
-
-/* ── 선택박스 소형 ── */
-[data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] {
-  min-height: 30px !important;
-  font-size: .84rem !important;
-}
-
-/* ── 사이드바 Expander ── */
-[data-testid="stSidebar"] [data-testid="stExpander"] {
-  margin-bottom: 5px !important;
-  border-radius: var(--r-md) !important;
-  border: 1.5px solid #dde5f5 !important;
-  background: #ffffff !important;
-  overflow: hidden !important;
-  box-shadow: var(--sh-xs) !important;
-}
-[data-testid="stSidebar"] [data-testid="stExpander"] summary {
-  padding: 7px 13px !important;
-  font-size: .85rem !important;
-  font-weight: 700 !important;
-  min-height: 34px !important;
-  color: #334155 !important;
-  background: #ffffff !important;
-}
-[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {
-  background: var(--c-primary-soft) !important;
-}
-[data-testid="stSidebar"] [data-testid="stExpander"] > div:last-child {
-  background: #f8faff !important;
-  padding: 8px 11px !important;
-}
-
-/* ── Secrets 로드 현황 expander 내부 글자 크기 축소 ── */
-[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stCaptionContainer"],
-[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stCaptionContainer"] p,
-[data-testid="stSidebar"] [data-testid="stExpander"] .stCaption,
-[data-testid="stSidebar"] [data-testid="stExpander"] .stCaption p,
-[data-testid="stSidebar"] [data-testid="stExpander"] small {
-  font-size: .68rem !important;
-  line-height: 1.5 !important;
-  color: var(--c-txt-mute) !important;
-}
-[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stAlert"] p,
-[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stAlert"] {
-  font-size: .68rem !important;
-  line-height: 1.5 !important;
-  padding: 6px 10px !important;
-}
-/* success/info 박스 (Google Sheets 자동 로드 완료 등) */
-[data-testid="stSidebar"] [data-testid="stAlert"][data-baseweb="notification"] p,
-[data-testid="stSidebar"] [data-testid="stAlert"][data-baseweb="notification"] {
-  font-size: .68rem !important;
-  line-height: 1.5 !important;
-}
-/* st.success, st.info 공통 */
-[data-testid="stSidebar"] .stSuccess p,
-[data-testid="stSidebar"] .stInfo p,
-[data-testid="stSidebar"] .stSuccess,
-[data-testid="stSidebar"] .stInfo {
-  font-size: .68rem !important;
-  line-height: 1.5 !important;
-  padding: 5px 10px !important;
-}
-
-
-
-/* ── 사이드바 multiselect ── */
-[data-testid="stSidebar"] .stMultiSelect > div > div {
-    border-radius: var(--r-md) !important;
-    border: 1.5px solid #dde5f5 !important;
-    background: #fff !important;
-    font-size: .85rem !important;
-    box-shadow: var(--sh-xs) !important;
-}
-[data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] {
-    background: var(--c-primary-soft) !important;
-    border: 1px solid var(--c-primary-mid) !important;
-    border-radius: 14px !important;
-    color: var(--c-primary-dark) !important;
-    font-size: .78rem !important;
-    font-weight: 600 !important;
-    padding: 2px 8px !important;
-}
-[data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] span {
-    color: var(--c-primary-dark) !important;
-}
-[data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] button {
-    color: var(--c-primary) !important;
-    background: transparent !important;
-    border: none !important;
-    min-height: unset !important;
-    box-shadow: none !important;
-    padding: 0 2px !important;
-}
-/* 다크모드 multiselect */
-
-
-/* ── 액션 버튼 색상 — 목록 지우기(danger) / 구글시트 내보내기(success) ── */
-[data-testid="stSidebar"] .btn-danger .stButton button {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
-  color: #ffffff !important;
-  border: none !important;
-  font-size: .65rem !important;
-  font-weight: 700 !important;
-  padding: 5px 6px !important;
-  min-height: 30px !important;
-  height: auto !important;
-  border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgba(239,68,68,.30) !important;
-  transition: all .15s ease !important;
-  letter-spacing: 0 !important;
-  white-space: normal !important;
-  overflow: visible !important;
-  line-height: 1.3 !important;
-  width: 100% !important;
-}
-[data-testid="stSidebar"] .btn-danger .stButton button:hover {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
-  box-shadow: 0 4px 14px rgba(220,38,38,.40) !important;
-  transform: translateY(-1px) !important;
-}
-/* StyledEllipsizedDiv (Streamlit 내부 white-space:nowrap 강제 오버라이드) */
-[data-testid="stSidebar"] .btn-danger .stButton button > div,
-[data-testid="stSidebar"] .btn-danger .stButton button > div > div {
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: unset !important;
-  display: block !important;
-  width: 100% !important;
-}
-[data-testid="stSidebar"] .btn-danger .stButton button p,
-[data-testid="stSidebar"] .btn-danger .stButton button span {
-  color: #ffffff !important;
-  font-size: .65rem !important;
-  font-weight: 700 !important;
-  white-space: normal !important;
-  overflow: visible !important;
-  display: inline !important;
-}
-
-[data-testid="stSidebar"] .btn-success .stButton button {
-  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
-  color: #ffffff !important;
-  border: none !important;
-  font-size: .65rem !important;
-  font-weight: 700 !important;
-  padding: 5px 6px !important;
-  min-height: 30px !important;
-  height: auto !important;
-  border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgba(22,163,74,.30) !important;
-  transition: all .15s ease !important;
-  letter-spacing: 0 !important;
-  white-space: normal !important;
-  overflow: visible !important;
-  line-height: 1.3 !important;
-  width: 100% !important;
-}
-[data-testid="stSidebar"] .btn-success .stButton button:hover {
-  background: linear-gradient(135deg, #15803d 0%, #166534 100%) !important;
-  box-shadow: 0 4px 14px rgba(21,128,61,.40) !important;
-  transform: translateY(-1px) !important;
-}
-/* StyledEllipsizedDiv 오버라이드 */
-[data-testid="stSidebar"] .btn-success .stButton button > div,
-[data-testid="stSidebar"] .btn-success .stButton button > div > div {
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: unset !important;
-  display: block !important;
-  width: 100% !important;
-}
-[data-testid="stSidebar"] .btn-success .stButton button p,
-[data-testid="stSidebar"] .btn-success .stButton button span {
-  color: #ffffff !important;
-  font-size: .65rem !important;
-  font-weight: 700 !important;
-  white-space: normal !important;
-  overflow: visible !important;
-  display: inline !important;
-}
-/* disabled 상태 */
-[data-testid="stSidebar"] .btn-success .stButton button:disabled,
-[data-testid="stSidebar"] .btn-success .stButton button[disabled] {
-  background: linear-gradient(135deg, #86efac 0%, #6ee7b7 100%) !important;
-  box-shadow: none !important;
-  opacity: .6 !important;
-  transform: none !important;
-  cursor: not-allowed !important;
-}
-
-/* ── 다크모드 액션 버튼 ── */
-/* ── 정렬 우선순위 버튼 (↑↓✕) ── */
-[data-testid="stSidebar"] .stButton button[kind="secondary"]:has(+ *),
-[data-testid="stSidebar"] .element-container:has(button) .stButton button {
-    min-height: 28px !important;
-    padding: 2px 5px !important;
-    font-size: .78rem !important;
-}
-/* 우선순위 번호 배지 행 여백 */
-[data-testid="stSidebar"] .sort-priority-row {
-    margin: 2px 0 !important;
 }
 /* ══════════════════════════════════════════════════════════════
    반응형 레이아웃
@@ -1110,7 +1064,8 @@ details summary [data-testid="stIconMaterial"] {
   .metric-card { padding: 14px 15px; }
   .metric-card .value { font-size: 1.55rem; }
   .stTabs [data-baseweb="tab"] { font-size: .83rem !important; padding: 6px 11px !important; }
-  [data-testid="stSidebar"] { min-width: 90vw !important; max-width: 90vw !important; }
+  section[data-testid="stSidebar"],
+  [data-testid="stSidebar"] { width: 90vw !important; min-width: 90vw !important; max-width: 90vw !important; }
   .stat-row { gap: 7px; }
   .stat-item { font-size: .79rem; padding: 3px 9px; }
   .section-title { font-size: .98rem; }
@@ -3207,6 +3162,203 @@ def upload_to_gsheet(all_results_by_keyword, channel_stats, sort_label,
     return True, sheet_url
 
 # ================================================================
+# URL 파싱 헬퍼 (줄바꿈으로 구분된 YouTube URL → video_id 리스트)
+# ================================================================
+def parse_youtube_urls(text: str) -> list:
+    """유튜브 URL(또는 video_id) 목록에서 video_id만 추출. 중복 제거."""
+    import re as _re
+    _pat = _re.compile(
+        r'(?:https?://)?(?:www\.)?'
+        r'(?:youtube\.com/(?:watch\?(?:.*?&)?v=|shorts/|embed/|live/)'
+        r'|youtu\.be/)'
+        r'([A-Za-z0-9_-]{11})'
+    )
+    seen, result = set(), []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        m = _pat.search(line)
+        if m:
+            vid = m.group(1)
+        elif _re.match(r'^[A-Za-z0-9_-]{11}$', line):
+            vid = line
+        else:
+            continue
+        if vid not in seen:
+            seen.add(vid)
+            result.append(vid)
+    return result
+
+
+# ================================================================
+# 자막 병렬 추출 워커
+# ================================================================
+def _fetch_one_transcript(
+    v: dict,
+    use_gemini: bool,
+    gemini_key: str,
+    use_whisper: bool,
+    whisper_key: str,
+) -> dict:
+    """
+    단일 영상 자막 추출 (Thread-safe).
+    YouTube API → Gemini → Whisper 순으로 폴백.
+    반환: {videoId, transcript, keywords, summary, errors}
+    """
+    video_id = v["videoId"]
+    errors   = []
+
+    # ① YouTube 자막 API
+    raw = get_transcript(video_id)
+    _no_cap = (
+        not raw
+        or raw.startswith("자막 없음")
+        or raw.startswith("youtube-transcript")
+        or raw.startswith("[Whisper")
+    )
+
+    # ② Gemini 폴백
+    if _no_cap and use_gemini and gemini_key:
+        _sec = parse_duration_seconds(v.get("duration", "0:00"))
+        if _sec > 25 * 60:
+            errors.append(
+                f"• {v['title'][:35]} [Gemini 스킵]: "
+                f"영상 길이 {v.get('duration','?')} 25분 초과"
+            )
+            if use_whisper and whisper_key:
+                r2 = whisper_transcribe(video_id, whisper_key)
+                if r2 and not r2.startswith("[Whisper 오류]"):
+                    raw, _no_cap = f"[🎙️ Whisper 변환]\n{r2}", False
+                else:
+                    errors.append(f"• {v['title'][:35]} [Whisper]: {r2}")
+        else:
+            g = gemini_analyze_video(video_id, gemini_key)
+            if g and not g.startswith("[Gemini 오류"):
+                raw, _no_cap = g, False
+            else:
+                errors.append(
+                    f"• {v['title'][:35]} [Gemini 실패]: {(g or '')[:120]}"
+                )
+                raw = "자막 없음 (Gemini 실패)"
+                if use_whisper and whisper_key:
+                    r2 = whisper_transcribe(video_id, whisper_key)
+                    if r2 and not r2.startswith("[Whisper 오류]"):
+                        raw, _no_cap = f"[🎙️ Whisper 변환]\n{r2}", False
+                    else:
+                        errors.append(f"• {v['title'][:35]} [Whisper]: {r2}")
+
+    # ③ Whisper 전용
+    elif _no_cap and use_whisper and whisper_key:
+        r2 = whisper_transcribe(video_id, whisper_key)
+        if r2 and not r2.startswith("[Whisper 오류]"):
+            raw = f"[🎙️ Whisper 변환]\n{r2}"
+        else:
+            errors.append(f"• {v['title'][:35]} [Whisper]: {r2}")
+            raw = f"자막 없음 (Whisper 실패: {(r2 or '')[:60]})"
+
+    # 결과 가공
+    transcript = clean_transcript(raw) if (raw and is_valid_transcript(raw)) else (raw or "")
+    keywords   = extract_keywords(
+        transcript + " " + v.get("description", "") + " " + " ".join(v.get("tags", []))
+    )
+    summary = summarize_text(
+        transcript if len(transcript) > 100 else v.get("description", "")
+    )
+    return {
+        "videoId":    video_id,
+        "transcript": transcript,
+        "keywords":   keywords,
+        "summary":    summary,
+        "errors":     errors,
+    }
+
+
+def _run_parallel_transcripts(
+    videos: list,
+    use_gemini: bool,
+    gemini_key: str,
+    use_whisper: bool,
+    whisper_key: str,
+    status_text,
+    progress_bar=None,
+    pct_start: float = 0.0,
+    pct_end:   float = 1.0,
+    label: str = "",
+) -> list:
+    """
+    videos 리스트를 ThreadPoolExecutor로 병렬 자막 추출.
+    - YouTube API만: 최대 10 스레드
+    - Gemini 포함:  최대 5 스레드 (Free tier ~15 RPM 대응)
+    - Whisper 포함: 최대 3 스레드 (대역폭·API 한도)
+    진행 상황을 status_text로 업데이트. 오류 목록 반환.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    import time
+
+    total = len(videos)
+    if total == 0:
+        return []
+
+    errors_out: list = []
+
+    # 동시 처리 수 결정
+    if use_whisper and whisper_key:
+        max_workers = 3
+    elif use_gemini and gemini_key:
+        max_workers = 5
+    else:
+        max_workers = 10
+
+    pfx = f"[{label}] " if label else ""
+    id_to_idx = {v["videoId"]: i for i, v in enumerate(videos)}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {
+            pool.submit(
+                _fetch_one_transcript,
+                v, use_gemini, gemini_key, use_whisper, whisper_key
+            ): v
+            for v in videos
+        }
+        pending = set(futures)
+        done_cnt = 0
+
+        # 메인 스레드에서 폴링하여 UI 업데이트 (Streamlit 안전)
+        while pending:
+            time.sleep(0.35)
+            newly_done = {f for f in pending if f.done()}
+            for fut in newly_done:
+                pending.discard(fut)
+                done_cnt += 1
+                orig_v = futures[fut]
+                try:
+                    res = fut.result()
+                    idx = id_to_idx.get(res["videoId"])
+                    if idx is not None:
+                        videos[idx]["transcript"] = res["transcript"]
+                        videos[idx]["keywords"]   = res["keywords"]
+                        videos[idx]["summary"]    = res["summary"]
+                    errors_out.extend(res.get("errors", []))
+                except Exception as exc:
+                    errors_out.append(
+                        f"• {orig_v['title'][:35]} [스레드 오류]: {str(exc)[:80]}"
+                    )
+            if newly_done:
+                frac = pct_start + (done_cnt / total) * (pct_end - pct_start)
+                if progress_bar is not None:
+                    progress_bar.progress(min(frac, pct_end))
+                remain = total - done_cnt
+                status_text.info(
+                    f"📜 {pfx}자막 수집 중... "
+                    f"✅ {done_cnt}/{total}개 완료"
+                    + (f"  ·  {remain}개 처리 중" if remain else "")
+                )
+
+    return errors_out
+
+
+# ================================================================
 # 메인 UI
 # ================================================================
 def main():
@@ -3238,6 +3390,12 @@ def main():
     _s_existing   = _secret("GSHEET_EXISTING_ID")
     _s_openai_key  = _secret("OPENAI_API_KEY")
     _s_gemini_key  = _secret("GEMINI_API_KEY")
+
+    # ── 분석 모드 (session_state 기반, 사이드바 라디오 키 읽기) ──────────
+    url_mode = (
+        st.session_state.get("search_mode_radio", "🔍 키워드 검색")
+        == "🔗 URL 직접 분석"
+    )
 
     # ✅ Streamlit Cloud Secrets의 gcp_service_account 자동 로드
     _s_gcp_creds = None
@@ -3446,6 +3604,17 @@ def main():
             unsafe_allow_html=True
         )
 
+        # ── 분석 모드 선택 (키워드 검색 / URL 직접 분석) ─────────────────
+        st.radio(
+            "분석 모드",
+            ["🔍 키워드 검색", "🔗 URL 직접 분석"],
+            horizontal=True,
+            label_visibility="collapsed",
+            key="search_mode_radio",
+            help="키워드 검색: YouTube에서 키워드로 영상 검색\n"
+                 "URL 직접 분석: 영상 URL을 줄바꿈으로 1~50개 입력하여 직접 분석",
+        )
+
         # ── session_state 초기화 (키워드 입력창 + 서브 주제) ──────────────
         if "hot_topics" not in st.session_state:
             st.session_state["hot_topics"]       = []
@@ -3454,7 +3623,7 @@ def main():
         if "hot_topic_clicked" not in st.session_state:
             st.session_state["hot_topic_clicked"] = ""
         if "hot_exp_open" not in st.session_state:
-            st.session_state["hot_exp_open"] = True
+            st.session_state["hot_exp_open"] = False
         if "favorites" not in st.session_state:
             st.session_state["favorites"] = []  # [{topic, keyword, date, views, label}]
         if "fav_exp_open" not in st.session_state:
@@ -3497,6 +3666,10 @@ def main():
             st.session_state["fav_rename_folder"] = ""   # 현재 이름 변경 중인 폴더명
         if "fav_add_target_folder" not in st.session_state:
             st.session_state["fav_add_target_folder"] = "기본 폴더"  # ADD 시 저장할 폴더
+        if "url_input" not in st.session_state:
+            st.session_state["url_input"] = ""
+        if "search_mode_radio" not in st.session_state:
+            st.session_state["search_mode_radio"] = "🔍 키워드 검색"
 
         # ★ 즐겨찾기 액션 처리
         _fav_action = st.session_state.pop("fav_action", "")
@@ -3610,13 +3783,49 @@ def main():
                 _cur_kws.insert(0, _clicked)
             st.session_state["kw_input"] = ", ".join(_cur_kws)
 
-        # ── 키워드 입력창 (key="kw_input" → session_state 기반) ──────────
-        keywords_input = st.text_area(
-            "검색 키워드 (쉼표로 여러 개 입력)",
-            key="kw_input",
-            placeholder="예: 비타민D 효능, 50대 영양제",
-            height=65
-        )
+        # ── 키워드 입력창 / URL 입력창 (모드에 따라 전환) ─────────────────
+        if not url_mode:
+            keywords_input = st.text_area(
+                "검색 키워드 (쉼표로 여러 개 입력)",
+                key="kw_input",
+                placeholder="예: 비타민D 효능, 50대 영양제",
+                height=65
+            )
+        else:
+            keywords_input = ""
+            _url_text = st.text_area(
+                "분석할 YouTube URL (줄바꿈으로 구분, 1~50개)",
+                key="url_input",
+                placeholder=(
+                    "https://www.youtube.com/watch?v=XXXXXXXXXXX\n"
+                    "https://youtu.be/XXXXXXXXXXX\n"
+                    "https://www.youtube.com/shorts/XXXXXXXXXXX\n"
+                    "..."
+                ),
+                height=200,
+                help="YouTube 영상 URL을 한 줄에 하나씩 입력하세요. 1~50개까지 지원합니다.",
+            )
+            _parsed_ids_preview = parse_youtube_urls(_url_text) if _url_text.strip() else []
+            _n_preview = len(_parsed_ids_preview)
+            if _url_text.strip():
+                _raw_lines_cnt = sum(1 for l in _url_text.splitlines() if l.strip())
+                _n_invalid_cnt = _raw_lines_cnt - _n_preview
+                if _n_preview == 0:
+                    st.error("❌ 유효한 YouTube URL이 없습니다.")
+                elif _n_preview > 50:
+                    st.warning(
+                        f"⚠️ 최대 50개까지 지원합니다. "
+                        f"(현재 {_n_preview}개 인식 → 처음 50개만 분석)"
+                    )
+                else:
+                    _pinv  = f"  ·  {_n_invalid_cnt}개 무효/중복 제거" if _n_invalid_cnt > 0 else ""
+                    st.markdown(
+                        f"<div style='background:#f0fdf4;border:1px solid #86efac;"
+                        f"border-radius:6px;padding:4px 10px;margin-top:2px'>"
+                        f"<span style='font-size:0.72rem;color:#16a34a;font-weight:600'>"
+                        f"✅ {_n_preview}개 URL 인식{_pinv}</span></div>",
+                        unsafe_allow_html=True,
+                    )
 
         # ── 🔥 실시간 인기 서브 주제 추출 UI ─────────────────────────────
         _main_kw = keywords_input.split(",")[0].strip() if keywords_input else ""
@@ -3672,7 +3881,7 @@ def main():
                 f"🔥 '{_topics_kw}' 인기 서브 주제 "
                 f"TOP {len(_topics_now)} — 클릭하여 열기/접기"
             )
-            with st.expander(_exp_label, expanded=st.session_state.get('hot_exp_open', True)):
+            with st.expander(_exp_label, expanded=st.session_state.get('hot_exp_open', False)):
                 _max_score = max(t["score"] for t in _topics_now) or 1
                 # 출처 통계
                 _src_count = {}
@@ -4915,7 +5124,17 @@ def main():
                         st.caption("✅ Whisper API 키 설정됨")
 
         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-        search_btn = st.button("🚀 검색 시작", use_container_width=True, type="primary")
+        if not url_mode:
+            search_btn = st.button("🚀 검색 시작", use_container_width=True, type="primary")
+            url_btn    = False
+        else:
+            url_btn    = st.button(
+                "🔗 URL 분석 시작",
+                use_container_width=True,
+                type="primary",
+                help="입력한 YouTube URL들을 순서대로 분석합니다.",
+            )
+            search_btn = False
 
         # ✅ FIX: Secrets 로드 현황 디버그 패널
         with st.expander("🔧 Secrets 로드 현황 (클릭)", expanded=False):
@@ -5171,87 +5390,28 @@ def main():
                     v["has_coupang"] = False
                     v["pinned_comment"] = ""
 
-            # 4) 자막 → Gemini / Whisper 폴백
+            # 4) 자막 — 병렬 추출 (YouTube API → Gemini → Whisper 폴백)
             if fetch_transcript:
-                for vi, v in enumerate(videos):
-                    _mode_note = ""
-                    if use_gemini and gemini_api_key_input:
-                        _mode_note = " 🤖Gemini 대기중"
-                    elif use_whisper and openai_api_key_input:
-                        _mode_note = " 🎙️Whisper 대기중"
-                    status_text.info(f"📜 [{kw}] 자막 수집 중... ({vi+1}/{len(videos)}) - {v['title'][:30]}...{_mode_note}")
-
-                    # ① 먼저 유튜브 자막 시도
-                    raw = get_transcript(v["videoId"])
-                    _no_caption = (
-                        not raw
-                        or raw.startswith("자막 없음")
-                        or raw.startswith("youtube-transcript")
-                        or raw.startswith("[Whisper")
-                    )
-
-                    # ② 자막 없을 때 Gemini 시도
-                    if _no_caption and use_gemini and gemini_api_key_input:
-                        # ── 영상 길이 사전 체크 ──────────────────────────────────
-                        # Gemini 무료 티어(Tier 1): 25분↑ 영상은 토큰 초과 가능성 높음
-                        # 초당 약 300 토큰 × 25분(1500초) ≈ 450,000 토큰 → 제한 근접
-                        _vid_sec = parse_duration_seconds(v.get("duration", "0:00"))
-                        _GEMINI_MAX_SEC = 25 * 60  # 25분 = 1500초
-
-                        if _vid_sec > _GEMINI_MAX_SEC:
-                            # 25분 초과 → Gemini 스킵, Whisper로 자동 전환 시도
-                            _skip_msg = (
-                                f"[Gemini 스킵] {v['title'][:35]} "
-                                f"— 영상 길이 {v.get('duration','?')} (25분 초과, 토큰 한도 위험) "
-                                f"→ {'Whisper로 전환' if use_whisper and openai_api_key_input else '자막 없음 처리'}"
-                            )
-                            _whisper_errors.append(f"• {v['title'][:35]} [Gemini 스킵]: 영상 길이 {v.get('duration','?')} 25분 초과")
-                            status_text.info(f"⏭️ [{kw}] Gemini 스킵 (25분 초과): {v['title'][:25]}...")
-                            gemini_result = None
-                        else:
-                            status_text.info(
-                                f"🤖 [{kw}] Gemini 분석 중... ({vi+1}/{len(videos)}) "
-                                f"- {v['title'][:25]}..."
-                            )
-                            gemini_result = gemini_analyze_video(v["videoId"], gemini_api_key_input)
-
-                        if gemini_result and not gemini_result.startswith("[Gemini 오류"):
-                            raw = gemini_result
-                            _no_caption = False
-                        else:
-                            err_msg = gemini_result or "[Gemini 오류] 알 수 없는 오류"
-                            _whisper_errors.append(f"• {v['title'][:35]} [Gemini 실패]: {err_msg[:120]}")
-                            # 항상 raw를 "자막 없음"으로 설정 (오류 텍스트가 transcript에 저장되지 않도록)
-                            raw = "자막 없음 (Gemini 실패)"
-                            # ✅ 개별 st.warning 제거 → 마지막에 요약 패널로 표시
-
-                    # ③ 자막 없을 때(Gemini도 실패 or 미사용) Whisper 시도
-                    if _no_caption and use_whisper and openai_api_key_input:
-                        status_text.info(
-                            f"🎙️ [{kw}] Whisper 변환 중... ({vi+1}/{len(videos)}) "
-                            f"- {v['title'][:25]}... (수 분 소요될 수 있습니다)"
-                        )
-                        whisper_result = whisper_transcribe(v["videoId"], openai_api_key_input)
-                        if whisper_result and not whisper_result.startswith("[Whisper 오류]"):
-                            raw = f"[🎙️ Whisper 변환]\n{whisper_result}"
-                        else:
-                            err_msg = whisper_result or "[Whisper 오류] 알 수 없는 오류"
-                            _whisper_errors.append(f"• {v['title'][:35]} [Whisper]: {err_msg}")
-                            st.warning(f"🎙️ Whisper 변환 실패: {v['title'][:30]}\n→ {err_msg}")
-                            raw = f"자막 없음 (Whisper 실패: {err_msg[:60]})"
-
-                    # 타임스탬프 제거 후 저장 (오류/빈 값 제외)
-                    if raw and is_valid_transcript(raw):
-                        v["transcript"] = clean_transcript(raw)
-                    else:
-                        v["transcript"] = raw
-
-                    v["keywords"] = extract_keywords(
-                        v["transcript"] + " " + v["description"] + " " + " ".join(v["tags"])
-                    )
-                    v["summary"]  = summarize_text(
-                        v["transcript"] if len(v.get("transcript","")) > 100 else v["description"]
-                    )
+                _mode_lbl = (
+                    "🤖 Gemini" if use_gemini and gemini_api_key_input
+                    else ("🎙️ Whisper" if use_whisper and openai_api_key_input
+                          else "YouTube 자막")
+                )
+                _n_v = len(videos)
+                _max_w = (3 if (use_whisper and openai_api_key_input)
+                          else (5 if (use_gemini and gemini_api_key_input) else 10))
+                status_text.info(
+                    f"📜 [{kw}] 자막 수집 시작 — {_n_v}개 영상 · {_mode_lbl} · "
+                    f"동시처리 {min(_max_w, _n_v)}개"
+                )
+                _kw_errors = _run_parallel_transcripts(
+                    videos,
+                    use_gemini, gemini_api_key_input,
+                    use_whisper, openai_api_key_input,
+                    status_text,
+                    label=kw,
+                )
+                _whisper_errors.extend(_kw_errors)
 
             # 5) 배지 & 순위 & 정렬 출처 태그
             for rank_i, v in enumerate(videos, 1):
@@ -5307,11 +5467,144 @@ def main():
             st.error("❌ 자동 업로드 실패: credentials 없음. Secrets의 [gcp_service_account]를 확인하세요.")
 
     # ================================================================
+    # URL 직접 분석 실행
+    # ================================================================
+    if url_btn:
+        if not api_key:
+            st.error("❌ YouTube API 키를 입력해주세요.")
+            st.stop()
+        _url_raw_text = st.session_state.get("url_input", "").strip()
+        if not _url_raw_text:
+            st.error("❌ 분석할 YouTube URL을 입력해주세요.")
+            st.stop()
+        _url_video_ids = parse_youtube_urls(_url_raw_text)[:50]
+        if not _url_video_ids:
+            st.error("❌ 유효한 YouTube URL이 없습니다. URL 형식을 확인해주세요.")
+            st.stop()
+
+        # credentials 로드 (Google Sheets 사용 시)
+        creds_dict = None
+        if use_gsheet:
+            if _s_gcp_creds:
+                creds_dict = _s_gcp_creds
+            elif credentials_file:
+                try:
+                    creds_dict = json.load(credentials_file)
+                except Exception:
+                    st.error("❌ 업로드한 credentials.json 파일을 읽을 수 없습니다.")
+                    st.stop()
+            elif _auto_creds_path:
+                try:
+                    with open(_auto_creds_path, "r", encoding="utf-8") as _uf:
+                        creds_dict = json.load(_uf)
+                except Exception as _ue:
+                    st.error(f"❌ credentials.json 자동 로드 실패: {_ue}")
+                    st.stop()
+            else:
+                st.error("❌ credentials.json 없음\n\n해결 방법:\n1. Secrets에 [gcp_service_account] 추가\n2. 또는 파일 직접 업로드")
+                st.stop()
+
+        _url_total   = len(_url_video_ids)
+        progress_bar = st.progress(0)
+        status_text  = st.empty()
+        _whisper_errors = []
+
+        # ① 상세 정보
+        status_text.info(f"📊 {_url_total}개 영상 정보 수집 중...")
+        videos = fetch_video_details(api_key, _url_video_ids)
+
+        if not videos:
+            st.error("❌ 영상 정보를 가져올 수 없습니다. API 키와 URL을 확인해주세요.")
+            st.stop()
+
+        # ② 구독자 수
+        status_text.info("👥 구독자 수 수집 중...")
+        videos = fetch_subscribers(api_key, videos)
+        progress_bar.progress(0.15)
+
+        # 쿠팡 필드 기본값
+        for v in videos:
+            v["has_coupang"]   = False
+            v["pinned_comment"] = ""
+
+        # ①②③ 자막 수집 — 병렬 처리
+        if fetch_transcript:
+            _u_mode_lbl = (
+                "🤖 Gemini" if use_gemini and gemini_api_key_input
+                else ("🎙️ Whisper" if use_whisper and openai_api_key_input
+                      else "YouTube 자막")
+            )
+            _u_max_w = (3 if (use_whisper and openai_api_key_input)
+                        else (5 if (use_gemini and gemini_api_key_input) else 10))
+            status_text.info(
+                f"📜 자막 수집 시작 — {_url_total}개 영상 · {_u_mode_lbl} · "
+                f"동시처리 {min(_u_max_w, _url_total)}개"
+            )
+            _url_errs = _run_parallel_transcripts(
+                videos,
+                use_gemini, gemini_api_key_input,
+                use_whisper, openai_api_key_input,
+                status_text,
+                progress_bar=progress_bar,
+                pct_start=0.15,
+                pct_end=0.95,
+            )
+            _whisper_errors.extend(_url_errs)
+
+        progress_bar.progress(1.0)
+        status_text.success(f"✅ {_url_total}개 영상 분석 완료!")
+
+        _url_group_key   = f"URL 직접 분석 ({_url_total}개)"
+        _all_results_url = {_url_group_key: videos}
+        _ch_stats_url    = build_channel_stats(videos)
+
+        st.session_state["results"]        = _all_results_url
+        st.session_state["channel_stats"]  = _ch_stats_url
+        st.session_state["sort_label"]     = "URL 직접 분석"
+        st.session_state["filter_summary"] = {
+            "sort":    ["URL 직접 분析"],
+            "date":    ["전체"],
+            "dur":     ["전체"],
+            "vtype":   "전체",
+            "max":     _url_total,
+            "kws":     [_url_group_key],
+            "coupang": False,
+        }
+        st.session_state["creds_dict"]      = creds_dict
+        st.session_state["share_email"]     = share_email
+        st.session_state["existing_id"]     = existing_id
+        st.session_state["use_gsheet"]      = use_gsheet
+        st.session_state["whisper_errors"]  = _whisper_errors
+
+        if use_gsheet and creds_dict:
+            with st.spinner("☁️ 구글 스프레드시트 자동 업로드 중..."):
+                _uok, _ures = upload_to_gsheet(
+                    _all_results_url, _ch_stats_url, "URL 직접 분析",
+                    credentials_dict=creds_dict,
+                    share_email=share_email,
+                    existing_id=existing_id,
+                )
+            if _uok:
+                st.success("✅ 구글 스프레드시트 자동 업로드 완료!")
+                st.markdown(f"🔗 [스프레드시트 열기]({_ures})")
+                st.session_state["gsheet_url"] = _ures
+            else:
+                st.error(f"❌ 자동 업로드 실패: {_ures}")
+        elif use_gsheet and not creds_dict:
+            st.error("❌ 자동 업로드 실패: credentials 없음.")
+
+    # ================================================================
     # 결과 표시
     # ================================================================
     if "results" not in st.session_state or not st.session_state["results"]:
-        if not search_btn:
-            st.info("👈 왼쪽 사이드바에서 API 키와 검색 키워드를 입력하고 **검색 시작** 버튼을 눌러주세요.")
+        if not search_btn and not url_btn:
+            if url_mode:
+                st.info(
+                    "👈 왼쪽 사이드바에서 YouTube URL을 줄바꿈으로 입력하고 "
+                    "**URL 분析 시작** 버튼을 눌러주세요. (1~50개 지원)"
+                )
+            else:
+                st.info("👈 왼쪽 사이드바에서 API 키와 검색 키워드를 입력하고 **검색 시작** 버튼을 눌러주세요.")
             with st.expander("📖 사용 방법 & 준비 사항"):
                 st.markdown("""
 **① 필수 라이브러리 설치**
@@ -5619,7 +5912,8 @@ padding:14px 18px;margin-bottom:18px'>
     # ── 탭1: 영상 목록 ───────────────────────────────────────
     with tab1:
         for kw, videos in all_results.items():
-            st.markdown(f"### 🔍 검색어: `{kw}`  &nbsp; ({len(videos)}개 영상 · {sort_label})")
+            _kw_prefix = "🔗 분석 결과" if sort_label == "URL 직접 분析" else "🔍 검색어"
+            st.markdown(f"### {_kw_prefix}: `{kw}`  &nbsp; ({len(videos)}개 영상 · {sort_label})")
             if not videos:
                 st.warning("검색 결과가 없습니다.")
                 continue
